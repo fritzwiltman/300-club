@@ -3,6 +3,13 @@ from bs4 import BeautifulSoup
 import psycopg2
 
 def scrape_and_store_user_selections():
+    """
+    Scrapes and stores user selections by iterating through a list of users,
+    scraping data for each user, and organizing the data into categories and picks.
+
+    Returns:
+        None
+    """
     users = scrape_mbr_ids()
 
     for user in users:
@@ -111,6 +118,14 @@ def insert_stagnant_data(users, categories, picks):
     '''
     Insert stagnant data into the database. Stagnant data is data that does not change from week to week.
     This includes users, categories, and picks.
+
+    Parameters:
+    - users (list): A list of dictionaries representing the users to be inserted.
+    - categories (list): A list of dictionaries representing the categories to be inserted.
+    - picks (dict): A dictionary containing the picks to be inserted, categorized by pick type.
+
+    Returns:
+    None
     '''
     conn = psycopg2.connect(
         dbname="three_hundred_club",
@@ -191,6 +206,13 @@ def insert_stagnant_data(users, categories, picks):
 
 
 def scrape_mbr_ids():
+    """
+    Scrapes the mbr_ids (member IDs) of users from 300 Club and returns a list of dictionaries
+    containing the user names and their corresponding mbr_ids.
+
+    Returns:
+        list: A list of dictionaries, where each dictionary contains the 'user' and 'mbr_id' keys.
+    """
     url = 'https://www.300club.org/CntstRanking.asp?contest_id=2&contest_name=Batters'
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -217,6 +239,23 @@ def scrape_mbr_ids():
 
 
 def scrape_selected_batters_data(mbr_id):
+    """
+    Scrapes the selected batters data for a given member ID.
+
+    Args:
+        mbr_id (int): The member ID.
+
+    Returns:
+        list: A list of dictionaries containing the selected batters data.
+            Each dictionary represents a selection and contains the following keys:
+            - 'selection_number': The selection number.
+            - 'player': The player's name.
+            - 'team': The player's team.
+            - 'average': The player's batting average.
+            - 'plate_appearances': The player's plate appearances.
+            - 'ops': The player's OPS (OBP Plus Slugging).
+            - 'disqualified': A boolean indicating if the player is disqualified or not (by not meeting plate appearance minimum).
+    """
     url = f'https://www.300club.org/RankingPerMember.asp?mbr_id={mbr_id}&contest_id=2&contest_name=Batters'
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -243,6 +282,22 @@ def scrape_selected_batters_data(mbr_id):
 
 
 def scrape_selected_alternate_batters(mbr_id):
+    """
+    Scrapes the selected alternate batters for a given member ID.
+
+    Args:
+        mbr_id (int): The member ID.
+
+    Returns:
+        list: A list of dictionaries representing the selected alternate batters. Each dictionary contains the following keys:
+            - 'selection_number': The selection number.
+            - 'player': The name of the player.
+            - 'team': The team of the player.
+            - 'average': The batting average of the player.
+            - 'plate_appearances': The number of plate appearances of the player.
+            - 'ops': The OPS (On-base Plus Slugging) of the player.
+            - 'disqualified': A boolean indicating if the player is disqualified or not.
+    """
     url = f'https://www.300club.org/RankingPerMember.asp?mbr_id={mbr_id}&contest_id=5&contest_name=Alternates'
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -271,6 +326,20 @@ def scrape_selected_alternate_batters(mbr_id):
 
 
 def scrape_selected_pitchers_data(mbr_id):
+    """
+    Scrapes the selected pitchers data for a given member ID.
+
+    Args:
+        mbr_id (int): The member ID.
+
+    Returns:
+        list: A list of dictionaries containing the selected pitchers data.
+            Each dictionary contains the following keys:
+            - selection_number (int): The selection number.
+            - player (str): The name of the player.
+            - team (str): The team of the player.
+            - wins (str): The number of wins for the player.
+    """
     url = f'https://www.300club.org/RankingPerMember.asp?mbr_id={mbr_id}&contest_id=3&contest_name=Pitchers'
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -296,6 +365,20 @@ def scrape_selected_pitchers_data(mbr_id):
 
 
 def scrape_selected_home_run_data(mbr_id):
+    """
+    Scrapes the selected home run data for a given member ID.
+
+    Parameters:
+    mbr_id (int): The member ID.
+
+    Returns:
+    list: A list of dictionaries containing the selected home run data.
+          Each dictionary contains the following keys:
+          - selection_number: The player's selection number by the user.
+          - player: The player's name.
+          - team: The player's team.
+          - home_runs: The number of home runs.
+    """
     url = f'https://www.300club.org/RankingPerMember.asp?mbr_id={mbr_id}&contest_id=6&contest_name=Home+Run+Hitters'
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -318,6 +401,21 @@ def scrape_selected_home_run_data(mbr_id):
 
 
 def scrape_selected_rbi_champion_data(mbr_id):
+    """
+    Scrapes the selected RBI champion data for a given member ID.
+
+    Args:
+        mbr_id (int): The member ID.
+
+    Returns:
+        list: A list of dictionaries containing the selected RBI champion data.
+            Each dictionary represents a selection and contains the following keys:
+            - 'selection_number': The selection number (always 1).
+            - 'player': The name of the player.
+            - 'team': The team of the player.
+            - 'actual_rbi': The actual RBI count.
+            - 'ballot_rbi': The RBI count from the ballot.
+    """
     url = f'https://www.300club.org/RankingPerMember.asp?mbr_id={mbr_id}&contest_id=7&contest_name=RBI+Champion'
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -339,6 +437,21 @@ def scrape_selected_rbi_champion_data(mbr_id):
 
 
 def scrape_selected_stolen_base_champion_data(mbr_id):
+    """
+    Scrapes the selected stolen base champion data for a given member ID.
+
+    Args:
+        mbr_id (int): The member ID.
+
+    Returns:
+        list: A list of dictionaries containing the selected stolen base champion data.
+            Each dictionary represents a selection and contains the following keys:
+            - 'selection_number': The selection number (always 1).
+            - 'player': The name of the player.
+            - 'team': The team of the player.
+            - 'actual_stolen_bases': The actual stolen bases of the player.
+            - 'ballot_stolen_bases': The ballot stolen bases of the player.
+    """
     url = f'https://www.300club.org/RankingPerMember.asp?mbr_id={mbr_id}&contest_id=8&contest_name=Stolen+Base+Champion'
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
@@ -360,6 +473,19 @@ def scrape_selected_stolen_base_champion_data(mbr_id):
 
 
 def scrape_selected_dimaggio_data(mbr_id):
+    """
+    Scrapes the selected DiMaggio Prize data for a given member ID.
+
+    Args:
+        mbr_id (int): The member ID.
+
+    Returns:
+        list: A list of dictionaries containing the selected data.
+            Each dictionary represents a selection and contains the following keys:
+            - 'selection_number': The selection number (always 1).
+            - 'actual_longest_hitting_streak': The actual longest hitting streak.
+            - 'ballot_longest_hitting_streak': The ballot longest hitting streak.
+    """
     url = f'https://www.300club.org/RankingPerMember.asp?mbr_id={mbr_id}&contest_id=9&contest_name=DiMaggio+Prize'
     response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
