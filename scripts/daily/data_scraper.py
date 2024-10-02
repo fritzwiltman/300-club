@@ -8,7 +8,7 @@ def scrape_batters_data():
     soup = BeautifulSoup(response.text, 'html.parser')
 
      # Extract data from HTML
-    rankings = []
+    batters_rankings = []
     table = soup.find('table', {'id': 'ranking'})
     for row in table.find_all('tr')[1:]:
         columns = row.find_all('td')
@@ -21,8 +21,9 @@ def scrape_batters_data():
             'rank_four_weeks_ago': columns[5].text.strip(),
             'eligible_batters_ops': columns[6].text.strip(),
         }
-        rankings.append(ranking)
-    return rankings
+        batters_rankings.append(ranking)
+    print(batters_rankings)
+    return batters_rankings
 
 def scrape_pitchers_data():
     url = 'https://www.300club.org/CntstRanking.asp?contest_id=3&contest_name=Pitchers'
@@ -137,26 +138,26 @@ def scrape_dimaggio_data():
         rankings.append(ranking)
     return rankings
 
-def store_data():
-    # Store data in the database
-    conn = psycopg2.connect("dbname=yourdbname user=youruser password=yourpassword")
-    cur = conn.cursor()
-    for ranking in rankings:
-        cur.execute(
-            "INSERT INTO rankings (rank, user, average) VALUES (%s, %s, %s)",
-            (ranking['rank'], ranking['user'], ranking['average'])
-        )
-    conn.commit()
-    cur.close()
-    conn.close()
+# def store_data():
+#     # Store data in the database
+#     conn = psycopg2.connect("dbname=yourdbname user=youruser password=yourpassword")
+#     cur = conn.cursor()
+#     for ranking in rankings:
+#         cur.execute(
+#             "INSERT INTO rankings (rank, user, average) VALUES (%s, %s, %s)",
+#             (ranking['rank'], ranking['user'], ranking['average'])
+#         )
+#     conn.commit()
+#     cur.close()
+#     conn.close()
 
 def scrape_ranking_data():
     batters = scrape_batters_data()
-    pitchers = scrape_pitchers_data()
-    home_runs = scrape_home_run_data()
-    rbis = scrape_rbi_data()
-    stolen_bases = scrape_stolen_base_data()
-    dimaggio = scrape_dimaggio_data()
+    # pitchers = scrape_pitchers_data()
+    # home_runs = scrape_home_run_data()
+    # rbis = scrape_rbi_data()
+    # stolen_bases = scrape_stolen_base_data()
+    # dimaggio = scrape_dimaggio_data()
     # function to update user selections numbers
 
 
