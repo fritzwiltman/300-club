@@ -1,3 +1,7 @@
 # Ignore config and environment files
 config/config.py
 .env
+
+# Ignore Python compiled files
+__pycache__/
+*.pyc
