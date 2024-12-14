@@ -10,4 +10,7 @@ from .serializers import PlayerSerializer
 def player_list(request):
     players = Player.objects.all()
     serializer = PlayerSerializer(players, many=True)
-    return Response(serializer.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=201)
+    return Response(serializer.errors, status=400)
