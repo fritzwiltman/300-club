@@ -1,7 +1,65 @@
 # Ignore config and environment files
 config/config.py
-.env
+config/.env.local
+config/.env.production
 
-# Ignore Python compiled files
+
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Django stuff:
+# SQLite database
+*.sqlite3
+
+# Django migrations
+**/migrations/*.py
+**/migrations/*.pyc
+!**/migrations/__init__.py
+
+# Media / Uploaded files
+media/
+uploads/
+
+# Django stuff (if using local settings):
+# .env, .env.* files store sensitive info
+*.env
+
+# Logs
+*.log
+
+# IDE or editor-specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Mac / Windows files
+.DS_Store
+Thumbs.db
