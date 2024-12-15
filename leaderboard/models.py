@@ -7,6 +7,7 @@ class Category(models.Model):
     class Meta:
         db_table = 'categories'
 
+
     def __str__(self):
         return self.name
 
@@ -17,6 +18,7 @@ class CustomUser(models.Model):
 
     class Meta:
         db_table = 'users'  # Maps to your existing users table
+
 
     def __str__(self):
         return self.name
@@ -31,14 +33,15 @@ class Player(models.Model):
     class Meta:
         db_table = 'players'
 
+
     def __str__(self):
-        return self.name
+        return self.player_name
     
 
 class Hitter(models.Model):
     # Because each row in 'hitters' links to one unique player,
     # we use OneToOneField with primary_key=True.
-    player_id = models.OneToOneField(
+    player = models.OneToOneField(
         Player,
         on_delete=models.CASCADE,
         primary_key=True,       # Tells Django 'player' is also the PK in 'hitters'.
@@ -56,13 +59,14 @@ class Hitter(models.Model):
     class Meta:
         db_table = 'hitters'
 
+
     def __str__(self):
-        return f'Hitting stats for {self.player.name}'
+        return f'Hitting stats for {self.player.player_name}'
     
 
 class Pitcher(models.Model):
     # One-to-one relationship ensures each Player has a single pitcher record
-    player_id = models.OneToOneField(
+    player = models.OneToOneField(
         Player,
         on_delete=models.CASCADE,
         primary_key=True,       # 'player' is also the PK in 'pitchers'
@@ -78,8 +82,9 @@ class Pitcher(models.Model):
     class Meta:
         db_table = 'pitchers'
 
+
     def __str__(self):
-        return f'Pitching stats for {self.player.name}'
+        return f'Pitching stats for {self.player.player_name}'
     
     
 class Pick(models.Model):
@@ -87,7 +92,7 @@ class Pick(models.Model):
 
     # user_id -> Foreign key to CustomUser
     # Remember to specify db_column='user_id' so Django knows which column to map.
-    user_id = models.ForeignKey(
+    user = models.ForeignKey(
         CustomUser,
         on_delete=models.CASCADE,
         db_column='user_id',
@@ -95,7 +100,7 @@ class Pick(models.Model):
     )
 
     # category_id -> Foreign key to Category
-    category_id = models.ForeignKey(
+    category = models.ForeignKey(
         Category,
         on_delete=models.CASCADE,
         db_column='category_id',
@@ -116,6 +121,7 @@ class Pick(models.Model):
 
     class Meta:
         db_table = 'picks'
+
 
     def __str__(self):
         return f"{self.user.name} - {self.category.name} - {self.player_name}"
