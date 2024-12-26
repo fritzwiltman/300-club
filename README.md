@@ -7,24 +7,24 @@ This repository manages a fantasy baseball leaderboard system for the 300-Club. 
 ## Table of Contents
 
 - [Data Population Scripts](#data-population-scripts)
-  - [user_selections_scraper.py](#user_selectionsscraperpy)
+  - [user_selections_scraper.py](#user_selections_scraperpy)
   - [populate_players.py](#populate_playerspy)
   - [data_scraper.py](#data_scraperpy)
 - [Running the Backend Server](#running-the-backend-server)
-- [Existing API Endpoint](#existing-api-endpoint)
+- [Existing API Endpoint](#existing-api-endpoints)
 
 ---
 
 ## Data Population Scripts
 
-Several Python scripts exist to **initialize** and **populate** tables in the PostgreSQL database:
+Several python3 scripts exist to **initialize** and **populate** tables in the PostgreSQL database:
 
 ### `user_selections_scraper.py`
 
 - **Purpose**: Scrapes user picks (e.g., from a CSV or website) and populates the `picks` table.
 - **Usage**:
   ```bash
-  python scripts/yearly/user_selections_scraper.py
+  python3 scripts/yearly/user_selections_scraper.py
   ```
   Typically run at the start of the season or whenever user picks change significantly.
 
@@ -32,18 +32,18 @@ Several Python scripts exist to **initialize** and **populate** tables in the Po
 
 - **Purpose**: Reads unique players selected by users and populates the players table, optionally assigning api_player_id values.
 - **Usage**:
-  `bash
-  python scripts/yearly/populate_players.py
-  `
+  ```bash
+  python3 scripts/yearly/populate_players.py
+  ```
   Run this **after** collecting user picks to ensure the players table is filled.
 
 ### `data_scraper.py`
 
-- **Purpose**: Fetches stats (batting average, OPS, ERA, wins, etc.) from an external API (e.g., MLB Stats API) and updates the hitters and pitchers tables.
+- **Purpose**: Fetches stats (batting average, OPS, ERA, wins, etc.) from an external API ([MLB Stats API](https://github.com/toddrob99/MLB-StatsAPI)) and updates the hitters and pitchers tables.
 - **Usage**:
-  `bash
+  ``` bash
   python scripts/daily/data_scraper.py
-  `
+  ```
   Typically automated via a cron job or scheduled task (daily/weekly) to keep stats current.
 
 ---
@@ -60,29 +60,29 @@ The backend is built with **Django** and interfaces with a PostgreSQL database.
 
 2. **Set Environment Variables**
    If using a .env.local file:
-   `bash
- export ENV_FILE=config/.env.local
- `
+   ```bash
+   export ENV_FILE=config/.env.local
+   ```
    Adjust for production or other environments as needed.
 
 3. **Apply Migrations** (Optional)
 
    ```bash
-   python manage.py makemigrations
-   python manage.py migrate
+   python3 manage.py makemigrations
+   python3 manage.py migrate
    ```
 
    If your tables already exist and you’ve used `managed=False` or `--fake-initial`, this step might do nothing. Otherwise, Django updates your database.
 
 4. **Start the Development Server**
    ```bash
-   python manage.py runserver
+   python3 manage.py runserver
    ```
    The server runs at http://127.0.0.1:8000 by default.
 
 ---
 
-## Existing API Endpoint(s)
+## Existing API Endpoints
 
 Currently, there is one endpoint available:
 
