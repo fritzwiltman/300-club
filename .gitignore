@@ -60,6 +60,9 @@ uploads/
 *.swp
 *.swo
 
-# Mac / Windows files
+# Mac files
 .DS_Store
 Thumbs.db
+
+# coverage files
+.coverage
