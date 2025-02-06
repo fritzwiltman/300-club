@@ -22,7 +22,7 @@ def calculate_pro_rated_plate_appearances():
     FULL_SEASON_PA = 502
 
     today = date.today()
-    print("TODAY:", today)
+
     # If the season hasn't started, return 0 to avoid division errors
     if today < SEASON_START:
         return 0
@@ -48,30 +48,6 @@ def hitter_leaderboard(request):
         user_regular_picks = Pick.objects.filter(user_id=user.mbr_id, category_id=1, is_alternate=False)
         user_alternate_picks = Pick.objects.filter(user_id=user.mbr_id, category_id=2, is_alternate=True)
 
-        print(f"Checking picks for user: {user.name}")
-        for pick in user_regular_picks:
-            print(f"Pick: {pick.player_name}, Looking up Player ID...")
-            try:
-                player_id = Player.objects.get(player_name=pick.player_name).id
-                hitter = Hitter.objects.get(player_id=player_id)
-                print(f"Found player ID: {player_id}, Plate Appearances: {hitter.plate_appearances}")
-            except Player.DoesNotExist:
-                print(f"❌ Player {pick.player_name} not found in Players table")
-            except Hitter.DoesNotExist:
-                print(f"❌ Hitter stats not found for {pick.player_name}")
-
-        print("ALTERNATES")
-        for pick in user_alternate_picks:
-            print(f"Pick: {pick.player_name}, Looking up Player ID...")
-            try:
-                player_id = Player.objects.get(player_name=pick.player_name).id
-                hitter = Hitter.objects.get(player_id=player_id)
-                print(f"Found player ID: {player_id}, Plate Appearances: {hitter.plate_appearances}")
-            except Player.DoesNotExist:
-                print(f"❌ Player {pick.player_name} not found in Players table")
-            except Hitter.DoesNotExist:
-                print(f"❌ Hitter stats not found for {pick.player_name}")
-
         # Get hitters who qualify
         qualified_regulars = [
             pick for pick in user_regular_picks
@@ -92,24 +68,20 @@ def hitter_leaderboard(request):
 
         # Disqualify if fewer than 10 qualified hitters
         if len(final_picks) < 10:
-            print(f"User: {user.name}, Regular Picks: {len(user_regular_picks)}, Qualified Regulars: {len(qualified_regulars)}, Qualified Alternates: {len(qualified_alternates)}")
             continue
-        print("ATTEMPTING SUM")
+
         # Calculate aggregate average
         aggregate_average = sum(
             Hitter.objects.get(player_id=Player.objects.get(player_name=pick.player_name).id).average
             for pick in final_picks
         ) / 10
-        print("HAVE REGULAR SUM")
+
         # Calculate alternates' average for tiebreaking
         alternate_average = (
             sum(Hitter.objects.get(player_id=Player.objects.get(player_name=pick.player_name).id).average 
                 for pick in qualified_alternates) /
             len(qualified_alternates) if qualified_alternates else 0
         )
-        print("HAVE ALTERNATE SUM")
-
-        # Any other tiebreakers?
 
         # Add entry to leaderboard
         leaderboard.append({
@@ -124,7 +96,7 @@ def hitter_leaderboard(request):
                 for pick in final_picks
             ]
         })
-    print(leaderboard)
+
     # Sort leaderboard by aggregate average and alternates' average
     leaderboard.sort(key=lambda pick: (-pick["aggregate_average"], -pick["alternate_average"]))
     # Add rank to each entry

@@ -74,7 +74,6 @@ def setup_hitters_test_data():
     for i in range(20, 25):
         Pick.objects.create(user_id=user3.mbr_id, category_id=category.id, player_name=players[i].player_name, is_alternate=True, pick_order=i+1)
 
-    print("user2",players[10:20])
     return user1, user2, user3, players
 
 @pytest.mark.django_db
