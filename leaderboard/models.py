@@ -14,7 +14,7 @@ class Category(models.Model):
 
 class CustomUser(models.Model):
     name = models.CharField(max_length=255)  # User's name
-    mbr_id = models.IntegerField(unique=True, primary_key=True)  # Membership ID (optional)
+    mbr_id = models.IntegerField(unique=True, primary_key=True)  # Membership ID
 
     class Meta:
         db_table = 'users'  # Maps to your existing users table
