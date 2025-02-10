@@ -46,7 +46,16 @@ def setup_hitters_test_data():
     
     # Create hitters with various stats
     for i, player in enumerate(players):
-        plate_appearances = 600 if i < 33 else 450  # 7 players meet threshold, 8 do not
+        # Set lower plate appearances for some alternates to force disqualification
+        if i < 30:
+            plate_appearances = 600  # Qualified
+        elif 30 <= i < 35:
+            plate_appearances = 450  # These should get disqualified as alternates
+        elif 35 <= i < 38:
+            plate_appearances = 650  # Qualified
+        else:
+            plate_appearances = 400  # Strongly disqualified
+        # plate_appearances = 600 if i < 33 else 450  # 7 players meet threshold, 8 do not
         Hitter.objects.create(
             player_id=player.id,
             average=0.300 + (i * .002), # Slightly increasing averages
@@ -70,12 +79,31 @@ def setup_hitters_test_data():
 
     # User 3 Picks (10 Different Regulars, 7 of which are disqualified)
     for i in range(10):
-        Pick.objects.create(user_id=user3.mbr_id, category_id=category_batters.id, player_name=players[i+30].player_name, is_alternate=False, pick_order=i+1)
+        Pick.objects.create(user_id=user3.mbr_id, category_id=category_batters.id, player_name=players[i+25].player_name, is_alternate=False, pick_order=i+1)
 
-    for i in range(20, 25):
+    for i in range(35, 40):
         Pick.objects.create(user_id=user3.mbr_id, category_id=category_alternates.id, player_name=players[i].player_name, is_alternate=True, pick_order=i+1)
   
     return user1, user2, user3, players
+
+
+@pytest.mark.django_db
+def test_hitter_leaderboard_with_disqualified_alternate(setup_hitters_test_data):
+    """Ensure that at least one alternate pick is disqualified due to low plate appearances."""
+    client = APIClient()
+    response = client.get('/leaderboard/batters/')
+    data = response.json()
+
+    # Find a user with disqualified alternates
+    user_with_disqualified_alternates = next(
+        (user for user in data if any(
+            int(pick["plate_appearances"]) < calculate_pro_rated_plate_appearances()
+            for pick in user["disqualified_picks"]
+        )), None
+    )
+
+    assert user_with_disqualified_alternates is not None, "At least one user should have disqualified alternates"
+
 
 @pytest.mark.django_db
 def test_hitter_leaderboard(setup_hitters_test_data):
@@ -125,6 +153,7 @@ def test_all_disqualified_users_are_present(setup_hitters_test_data):
     # Ensure User 3 has 0 qualified batters
     assert len(user3_entry["qualified_picks"]) == 8
 
+
 @pytest.mark.django_db
 def test_disqualified_users_have_picks_displayed(setup_hitters_test_data):
     client = APIClient()
@@ -141,6 +170,21 @@ def test_disqualified_users_have_picks_displayed(setup_hitters_test_data):
     # Ensure that User 3 still has their picks listed
     assert "qualified_picks" in user3_entry
     assert len(user3_entry["qualified_picks"]) == 8  # Should still appear
+
+
+@pytest.mark.django_db
+def test_hitter_leaderboard_serialization_error(mocker):
+    """Ensure that hitter leaderboard handles serialization errors gracefully."""
+    mocker.patch("leaderboard.views.HitterLeaderboardSerializer", side_effect=Exception("Mocked serialization error"))
+    
+    client = APIClient()
+    response = client.get('/leaderboard/batters/')
+    data = response.json()
+
+    assert response.status_code == 500
+    assert "error" in data
+    assert "Mocked serialization error" in data["error"]
+
 
 @pytest.mark.django_db
 def test_pro_rated_plate_appearances(monkeypatch):
@@ -162,3 +206,19 @@ def test_pro_rated_plate_appearances(monkeypatch):
         result = calculate_pro_rated_plate_appearances()
         
         assert result == pytest.approx(expected, rel=1e-2), f"Failed for {test_date}"
+
+
+@pytest.mark.django_db
+def test_pro_rated_plate_appearances_before_season(monkeypatch):
+    """Ensure that if today is before the season start, the function returns 0."""
+    future_date = date(2024, 3, 1)  # Before season start (March 18)
+    
+    class MockDate(date):
+        @classmethod
+        def today(cls):
+            return future_date
+
+    monkeypatch.setattr("leaderboard.views.date", MockDate)  # Mock today's date
+    result = calculate_pro_rated_plate_appearances()
+    
+    assert result == 0, "Expected 0 plate appearances before season start"
