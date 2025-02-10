@@ -8,11 +8,20 @@ class PlayerSerializer(serializers.ModelSerializer):
 
 class HitterLeaderboardSerializer(serializers.Serializer):
     user_name = serializers.CharField()
-    aggregate_average = serializers.FloatField()
-    alternate_average = serializers.FloatField()
-    qualified_batters = serializers.ListField(
-        child=serializers.DictField(
-            child=serializers.CharField()
-        )
-    )
+    aggregate_average = serializers.DecimalField(max_digits=6, decimal_places=4, allow_null=True)
+    alternate_average = serializers.DecimalField(max_digits=6, decimal_places=4, allow_null=True)
     rank = serializers.IntegerField()
+
+    qualified_picks = serializers.ListField(
+        child=serializers.DictField(
+            child=serializers.CharField(),  # Allows both player_name (str) and average (str/float)
+            required=True
+        ), required=True
+    )
+
+    disqualified_picks = serializers.ListField(
+        child=serializers.DictField(
+            child=serializers.CharField(),  # Allows both player_name (str) and plate_appearances (str/float)
+            required=True
+        ), required=True
+    )

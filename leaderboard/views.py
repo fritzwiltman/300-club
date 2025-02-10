@@ -44,70 +44,89 @@ def hitter_leaderboard(request):
     min_plate_appearances = calculate_pro_rated_plate_appearances()
 
     for user in CustomUser.objects.all():
-        # Get all users picks for the "batters" category (regular and alternates)
+        # Get user's picks
         user_regular_picks = Pick.objects.filter(user_id=user.mbr_id, category_id=1, is_alternate=False)
         user_alternate_picks = Pick.objects.filter(user_id=user.mbr_id, category_id=2, is_alternate=True)
+        
+        # Get qualified and disqualified picks
+        qualified_picks = []
+        disqualified_picks = []
 
-        # Get hitters who qualify
-        qualified_regulars = [
-            pick for pick in user_regular_picks
-            if Hitter.objects.filter(player_id=Player.objects.get(player_name=pick.player_name).id,
-                                     plate_appearances__gte=min_plate_appearances)
-                                     .exists()
-        ]
+        for pick in user_regular_picks:
+            player = Player.objects.get(player_name=pick.player_name)
+            hitter = Hitter.objects.filter(player_id=player.id).first()
+            
+            if hitter and hitter.plate_appearances >= min_plate_appearances:
+                qualified_picks.append({
+                    "player_name": pick.player_name,
+                    "average": hitter.average
+                })
+            else:
+                disqualified_picks.append({
+                    "player_name": pick.player_name,
+                    "plate_appearances": hitter.plate_appearances if hitter else 0
+                })
 
-        qualified_alternates = [
-            pick for pick in user_alternate_picks
-            if Hitter.objects.filter(player_id=Player.objects.get(player_name=pick.player_name).id,
-                                     plate_appearances__gte=min_plate_appearances)
-                                     .exists()
-        ]
+        # Handle alternates
+        qualified_alternates = []
+        for pick in user_alternate_picks:
+            player = Player.objects.get(player_name=pick.player_name)
+            hitter = Hitter.objects.filter(player_id=player.id).first()
+            
+            if hitter and hitter.plate_appearances >= min_plate_appearances:
+                qualified_alternates.append({
+                    "player_name": pick.player_name,
+                    "average": hitter.average
+                })
+            else:
+                disqualified_picks.append({
+                    "player_name": pick.player_name,
+                    "plate_appearances": hitter.plate_appearances if hitter else 0
+                })
 
         # Replace unqualified regulars with qualified alternates
-        final_picks = qualified_regulars + qualified_alternates[:10-len(qualified_regulars)]
+        final_qualified_picks = qualified_picks + qualified_alternates[:10-len(qualified_picks)]
 
-        # Disqualify if fewer than 10 qualified hitters
-        if len(final_picks) < 10:
-            continue
+        # Determine if user is disqualified
+        is_disqualified = len(final_qualified_picks) < 10
+        aggregate_average = None
+        alternate_average = None
 
-        # Calculate aggregate average
-        aggregate_average = sum(
-            Hitter.objects.get(player_id=Player.objects.get(player_name=pick.player_name).id).average
-            for pick in final_picks
-        ) / 10
+        if not is_disqualified:
+            aggregate_average = sum(player["average"] for player in final_qualified_picks) / 10
+            alternate_average = (
+                sum(player["average"] for player in qualified_alternates) / len(qualified_alternates)
+                if qualified_alternates else 0
+            )
 
-        # Calculate alternates' average for tiebreaking
-        alternate_average = (
-            sum(Hitter.objects.get(player_id=Player.objects.get(player_name=pick.player_name).id).average 
-                for pick in qualified_alternates) /
-            len(qualified_alternates) if qualified_alternates else 0
-        )
-
-        # Add entry to leaderboard
+        # Add user entry
         leaderboard.append({
             "user_name": user.name,
-            "aggregate_average": round(aggregate_average, 4),
-            "alternate_average": round(alternate_average, 4),
-            "qualified_batters": [
-                {
-                    "player_name": pick.player_name,
-                    "average": Hitter.objects.get(player_id=Player.objects.get(player_name=pick.player_name).id).average,
-                }
-                for pick in final_picks
-            ]
+            "aggregate_average": round(aggregate_average, 4) if aggregate_average else None,
+            "alternate_average": round(alternate_average, 4) if alternate_average else None,
+            "qualified_picks": final_qualified_picks,  # Includes qualified alternates
+            "disqualified_picks": disqualified_picks,
+            "rank": 0 if is_disqualified else None  # Will be assigned below
         })
 
-    # Sort leaderboard by aggregate average and alternates' average
-    leaderboard.sort(key=lambda pick: (-pick["aggregate_average"], -pick["alternate_average"]))
-    # Add rank to each entry
-    for rank, entry in enumerate(leaderboard, start=1):
+    # Sort and rank users properly
+    ranked_users = [entry for entry in leaderboard if entry["rank"] != 0]
+    
+    ranked_users.sort(
+        key=lambda pick: (
+            -pick["aggregate_average"] if pick["aggregate_average"] is not None else float('-inf'),
+            -pick["alternate_average"] if pick["alternate_average"] is not None else float('-inf')
+        )
+    )
+
+    # Assign rank
+    for rank, entry in enumerate(ranked_users, start=1):
         entry["rank"] = rank
 
+    final_response = ranked_users + [entry for entry in leaderboard if entry["rank"] == 0]
+
     try:
-        serializer = HitterLeaderboardSerializer(leaderboard, many=True)
+        serializer = HitterLeaderboardSerializer(final_response, many=True)
         return Response(serializer.data, status=200, content_type='application/json')
     except Exception as e:
-        print(str(e))  # Logs the full error traceback
         return JsonResponse({'error': str(e)}, status=500)
-    
-
