@@ -5,6 +5,7 @@ from rest_framework.test import APIClient
 from rest_framework import status
 from leaderboard.models import CustomUser, Pick, Player, Hitter, Category
 from leaderboard.views import calculate_pro_rated_plate_appearances
+import json
 
 @pytest.mark.django_db
 def test_player_list_view():
@@ -222,3 +223,121 @@ def test_pro_rated_plate_appearances_before_season(monkeypatch):
     result = calculate_pro_rated_plate_appearances()
     
     assert result == 0, "Expected 0 plate appearances before season start"
+
+@pytest.fixture
+def setup_homerun_test_data():
+    """Fixture to set up test data before each test for home run leaderboard"""
+    category_homeruns = Category.objects.create(id=4, name="homeruns")
+    category_alternates = Category.objects.create(id=2, name="batters_alternates")  # Ensuring alternates category exists
+
+    user1 = CustomUser.objects.create(name="User 1", mbr_id=1)
+    user2 = CustomUser.objects.create(name="User 2", mbr_id=2)
+    user3 = CustomUser.objects.create(name="User 3", mbr_id=3)
+
+    # Create 20 players for testing
+    players = []
+    for i in range(20):
+        players.append(Player.objects.create(
+            id=i+1,
+            player_name=f"Player {i+1}",
+            player_type="hitter",
+            api_player_id=20000+i+1,
+        ))
+
+    # Create hitters with varying home runs and plate appearances (all qualified)
+    for i, player in enumerate(players):
+        Hitter.objects.create(
+            player_id=player.id,
+            average=0.280 + (i * 0.001),  # Slightly increasing averages
+            ops=0.900 - (i * 0.005),  # Slightly decreasing OPS
+            plate_appearances=600,  # All are qualified
+            home_runs=20 + (i * 2)  # Increasing home runs for sorting
+        )
+
+    # User 1 Picks (4 Regulars)
+    for i in range(4):
+        Pick.objects.create(user_id=user1.mbr_id, category_id=category_homeruns.id, player_name=players[i].player_name, is_alternate=False, pick_order=i+1)
+
+    # User 2 Picks (4 Different Regulars)
+    for i in range(4):
+        Pick.objects.create(user_id=user2.mbr_id, category_id=category_homeruns.id, player_name=players[i].player_name, is_alternate=False, pick_order=i+1)
+
+    # User 3 Picks (4 picks)
+    for i in range(8, 12):
+        Pick.objects.create(user_id=user3.mbr_id, category_id=category_homeruns.id, player_name=players[i].player_name, is_alternate=False, pick_order=i+1)
+
+    # Alternate Picks for User 1 (For second tiebreaker)
+    for i in range(15, 18):
+        Pick.objects.create(user_id=user1.mbr_id, category_id=category_alternates.id, player_name=players[i].player_name, is_alternate=True, pick_order=i+1)
+
+    # Alternate Picks for User 2 (For second tiebreaker)
+    for i in range(16, 19):
+        Pick.objects.create(user_id=user2.mbr_id, category_id=category_alternates.id, player_name=players[i].player_name, is_alternate=True, pick_order=i+1)
+
+    # Alternate Picks for User 3 (For second tiebreaker)
+    for i in range(17, 20):
+        Pick.objects.create(user_id=user3.mbr_id, category_id=category_alternates.id, player_name=players[i].player_name, is_alternate=True, pick_order=i+1)
+
+    return user1, user2, user3, players
+
+
+@pytest.mark.django_db
+def test_homerun_leaderboard(setup_homerun_test_data):
+    """
+    Test the GET /leaderboard/homeruns/ endpoint returns a properly ranked home run leaderboard.
+    """
+    client = APIClient()
+    response = client.get('/leaderboard/homeruns/')
+    data = response.json()
+    print(json.dumps(data, indent=4))
+    # Ensure response is 200
+    assert response.status_code == status.HTTP_200_OK, response.content
+
+    # Ensure 3 users are returned
+    assert len(data) == 3
+
+    # Ensure ranking is correct (User 2 should have the most HRs, then User 1, then User 3)
+    assert data[0]["user_name"] == "User 3"
+    assert data[0]["rank"] == 1
+
+    assert data[1]["user_name"] == "User 2"
+    assert data[1]["rank"] == 2
+
+    assert data[2]["user_name"] == "User 1"
+    assert data[2]["rank"] == 3
+
+
+@pytest.mark.django_db
+def test_homerun_leaderboard_tiebreakers(setup_homerun_test_data):
+    """
+    Ensure that the tiebreakers (4th pick and alternates) correctly determine rankings.
+    """
+    client = APIClient()
+    response = client.get('/leaderboard/homeruns/')
+    data = response.json()
+
+    # Find user 3
+    user3_entry = next(user for user in data if user["user_name"] == "User 3")
+
+    # Ensure User 3 has the correct number of home runs
+    assert len(user3_entry["all_homerun_picks"]) == 4  # Should still have 4 picks
+    assert int(user3_entry["all_homerun_picks"][-1]["home_runs"]) > 0  # Last pick is the first tiebreaker
+
+    # Ensure the second tiebreaker is properly calculated
+    assert "second_tiebreaker_average" in user3_entry
+
+
+@pytest.mark.django_db
+def test_homerun_leaderboard_serialization_error(mocker):
+    """
+    Ensure the home run leaderboard handles serialization errors gracefully.
+    """
+    mocker.patch("leaderboard.views.HomerunLeaderboardSerializer", side_effect=Exception("Mocked serialization error"))
+    
+    client = APIClient()
+    response = client.get('/leaderboard/homeruns/')
+    data = response.json()
+
+    assert response.status_code == 500
+    assert "error" in data
+    assert "Mocked serialization error" in data["error"]

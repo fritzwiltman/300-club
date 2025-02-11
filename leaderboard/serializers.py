@@ -25,3 +25,27 @@ class HitterLeaderboardSerializer(serializers.Serializer):
             required=True
         ), required=True
     )
+
+class AlternateBatterSerializer(serializers.Serializer):
+    player_name = serializers.CharField()
+    average = serializers.FloatField()
+    is_disqualified = serializers.BooleanField()
+
+class HomerunLeaderboardSerializer(serializers.Serializer):
+    user_name = serializers.CharField()
+    top_three_total_homeruns = serializers.IntegerField()
+    first_tiebreaker_homeruns = serializers.IntegerField(allow_null=True)
+    second_tiebreaker_average = serializers.FloatField()
+    rank = serializers.IntegerField(allow_null=True)
+
+    # List of dictionaries: {"player_name": str, "home_runs": int}
+    all_homerun_picks = serializers.ListField(
+        child=serializers.DictField(
+            child=serializers.CharField(),  # player_name (str)
+            required=True
+        ),
+        required=True
+    )
+
+    # List of dictionaries: {"player_name": str, "average": float, "is_disqualified": bool}
+    alternate_batters_picks = AlternateBatterSerializer(many=True)  # ✅ Use a nested serializer
