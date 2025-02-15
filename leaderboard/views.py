@@ -59,7 +59,8 @@ def hitter_leaderboard(request):
             if hitter and hitter.plate_appearances >= min_plate_appearances:
                 qualified_picks.append({
                     "player_name": pick.player_name,
-                    "average": hitter.average
+                    "average": hitter.average,
+                    "ops": hitter.ops
                 })
             else:
                 disqualified_picks.append({
@@ -76,7 +77,8 @@ def hitter_leaderboard(request):
             if hitter and hitter.plate_appearances >= min_plate_appearances:
                 qualified_alternates.append({
                     "player_name": pick.player_name,
-                    "average": hitter.average
+                    "average": hitter.average,
+                    "ops": hitter.ops
                 })
             else:
                 disqualified_picks.append({
@@ -98,12 +100,14 @@ def hitter_leaderboard(request):
                 sum(player["average"] for player in qualified_alternates) / len(qualified_alternates)
                 if qualified_alternates else 0
             )
+            aggregate_ops = sum(player["ops"] for player in final_qualified_picks) / 10
 
         # Add user entry
         leaderboard.append({
             "user_name": user.name,
             "aggregate_average": round(aggregate_average, 4) if aggregate_average else None,
             "alternate_average": round(alternate_average, 4) if alternate_average else None,
+            "ops": round(aggregate_ops, 4) if aggregate_ops else None,
             "qualified_picks": final_qualified_picks,  # Includes qualified alternates
             "disqualified_picks": disqualified_picks,
             "rank": 0 if is_disqualified else None  # Will be assigned below
@@ -115,7 +119,8 @@ def hitter_leaderboard(request):
     ranked_users.sort(
         key=lambda pick: (
             -pick["aggregate_average"] if pick["aggregate_average"] is not None else float('-inf'),
-            -pick["alternate_average"] if pick["alternate_average"] is not None else float('-inf')
+            -pick["alternate_average"] if pick["alternate_average"] is not None else float('-inf'),
+            -pick["ops"] if pick["ops"] is not None else float('-inf')
         )
     )
 
