@@ -10,6 +10,7 @@ class HitterLeaderboardSerializer(serializers.Serializer):
     user_name = serializers.CharField()
     aggregate_average = serializers.DecimalField(max_digits=6, decimal_places=4, allow_null=True)
     alternate_average = serializers.DecimalField(max_digits=6, decimal_places=4, allow_null=True)
+    aggregate_ops = serializers.DecimalField(max_digits=6, decimal_places=4, allow_null=True)
     rank = serializers.IntegerField()
 
     qualified_picks = serializers.ListField(

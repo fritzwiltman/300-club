@@ -93,6 +93,7 @@ def hitter_leaderboard(request):
         is_disqualified = len(final_qualified_picks) < 10
         aggregate_average = None
         alternate_average = None
+        aggregate_ops = None
 
         if not is_disqualified:
             aggregate_average = sum(player["average"] for player in final_qualified_picks) / 10
@@ -102,17 +103,18 @@ def hitter_leaderboard(request):
             )
             aggregate_ops = sum(player["ops"] for player in final_qualified_picks) / 10
 
-        # Add user entry
-        leaderboard.append({
+        # Create and add user entry
+        user_entry = {
             "user_name": user.name,
             "aggregate_average": round(aggregate_average, 4) if aggregate_average else None,
             "alternate_average": round(alternate_average, 4) if alternate_average else None,
-            "ops": round(aggregate_ops, 4) if aggregate_ops else None,
+            "aggregate_ops": round(aggregate_ops, 4) if aggregate_ops else None,
             "qualified_picks": final_qualified_picks,  # Includes qualified alternates
             "disqualified_picks": disqualified_picks,
             "rank": 0 if is_disqualified else None  # Will be assigned below
-        })
-
+        }
+        leaderboard.append(user_entry)
+        
     # Sort and rank users properly
     ranked_users = [entry for entry in leaderboard if entry["rank"] != 0]
     
@@ -120,7 +122,7 @@ def hitter_leaderboard(request):
         key=lambda pick: (
             -pick["aggregate_average"] if pick["aggregate_average"] is not None else float('-inf'),
             -pick["alternate_average"] if pick["alternate_average"] is not None else float('-inf'),
-            -pick["ops"] if pick["ops"] is not None else float('-inf')
+            -pick["aggregate_ops"] if pick["aggregate_ops"] is not None else float('-inf')
         )
     )
 
