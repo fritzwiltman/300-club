@@ -1,7 +1,16 @@
 import requests
 from bs4 import BeautifulSoup
 import psycopg2
+import sys
+import os
+
+# Add the project root directory to the Python path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from config.config import DATABASE
+
+# Season year for the data being scraped
+SEASON = 2025
+
 
 def scrape_and_store_user_selections():
     """
@@ -81,7 +90,7 @@ def scrape_and_store_user_selections():
                         'user_id': user['mbr_id'],
                         'category_id': category['name'],
                         'player_name': selection['player'],
-                        'pick_value': selection['actual_rbi'],
+                        'pick_value': selection['ballot_rbi'],  # User's predicted RBI count
                     })
             elif category['name'] == 'stolen_base_champion':
                 for selection in user['stolen_base_champion']:
@@ -112,7 +121,7 @@ def scrape_and_store_user_selections():
 
     print("Inserting stagnant data into the database...")
     # Uncomment the following line to insert stagnant data into the database
-    # insert_stagnant_data(users, categories, picks)
+    insert_stagnant_data(users, categories, picks)
     print("Stagnant data (users, categories, picks) inserted into the database.")
 
 def insert_stagnant_data(users, categories, picks):
@@ -136,69 +145,65 @@ def insert_stagnant_data(users, categories, picks):
     )
     cur = conn.cursor()
 
-    # Insert users
+    # Insert users (skip if already exists)
     for user in users:
         cur.execute(
-            "INSERT INTO users (mbr_id, name) VALUES (%s, %s) RETURNING mbr_id",
+            "INSERT INTO users (mbr_id, name) VALUES (%s, %s) ON CONFLICT (mbr_id) DO NOTHING",
             (user['mbr_id'], user['user'])
         )
     conn.commit()
 
-    # Insert categories
-    for category in categories:
-        cur.execute(
-            "INSERT INTO categories (name) VALUES (%s) RETURNING id",
-            (category['name'],)
-        )
-    conn.commit()
-    
-    # Insert batter picks in picks
+    # Categories are static - skip insertion as they already exist
+    # (Categories: 1=batters, 2=alternate_batters, 3=pitchers, 4=home_run_hitters,
+    #  5=rbi_champion, 6=stolen_base_champion, 7=dimaggio)
+
+    # Insert batter picks with season
     for pick in picks['batters']:
         cur.execute(
-            "INSERT INTO picks (user_id, category_id, player_name, is_alternate, pick_order) VALUES (%s, %s, %s, %s, %s)",
-            (pick['user_id'], 1, pick['player_name'], pick['is_alternate'], pick['pick_order'])
+            "INSERT INTO picks (user_id, category_id, player_name, is_alternate, pick_order, season) VALUES (%s, %s, %s, %s, %s, %s)",
+            (pick['user_id'], 1, pick['player_name'], pick['is_alternate'], pick['pick_order'], SEASON)
         )
-    
-    # Insert alternate batter picks in picks
+
+    # Insert alternate batter picks with season
     for pick in picks['alternate_batters']:
         cur.execute(
-            "INSERT INTO picks (user_id, category_id, player_name, is_alternate, pick_order) VALUES (%s, %s, %s, %s, %s)",
-            (pick['user_id'], 2, pick['player_name'], pick['is_alternate'], pick['pick_order'])
+            "INSERT INTO picks (user_id, category_id, player_name, is_alternate, pick_order, season) VALUES (%s, %s, %s, %s, %s, %s)",
+            (pick['user_id'], 2, pick['player_name'], pick['is_alternate'], pick['pick_order'], SEASON)
         )
-    
-    # Insert pitcher picks in picks
+
+    # Insert pitcher picks with season
     for pick in picks['pitchers']:
         cur.execute(
-            "INSERT INTO picks (user_id, category_id, player_name, pick_order) VALUES (%s, %s, %s, %s)",
-            (pick['user_id'], 3, pick['player_name'], pick['pick_order'])
+            "INSERT INTO picks (user_id, category_id, player_name, pick_order, season) VALUES (%s, %s, %s, %s, %s)",
+            (pick['user_id'], 3, pick['player_name'], pick['pick_order'], SEASON)
         )
 
-    # Insert home run hitter picks in picks
+    # Insert home run hitter picks with season
     for pick in picks['home_run_hitters']:
         cur.execute(
-            "INSERT INTO picks (user_id, category_id, player_name, pick_order) VALUES (%s, %s, %s, %s)",
-            (pick['user_id'], 4, pick['player_name'], pick['pick_order'])
+            "INSERT INTO picks (user_id, category_id, player_name, pick_order, season) VALUES (%s, %s, %s, %s, %s)",
+            (pick['user_id'], 4, pick['player_name'], pick['pick_order'], SEASON)
         )
 
-    # Insert rbi champion picks in picks
+    # Insert rbi champion picks with season
     for pick in picks['rbi_champion']:
         cur.execute(
-            "INSERT INTO picks (user_id, category_id, player_name, pick_value) VALUES (%s, %s, %s, %s)",
-            (pick['user_id'], 5, pick['player_name'], pick['pick_value'])
+            "INSERT INTO picks (user_id, category_id, player_name, pick_value, season) VALUES (%s, %s, %s, %s, %s)",
+            (pick['user_id'], 5, pick['player_name'], pick['pick_value'], SEASON)
         )
 
-    # Insert stolen base champion picks in picks
+    # Insert stolen base champion picks with season
     for pick in picks['stolen_base_champion']:
         cur.execute(
-            "INSERT INTO picks (user_id, category_id, player_name, pick_value) VALUES (%s, %s, %s, %s)",
-            (pick['user_id'], 6, pick['player_name'], pick['pick_value'])
+            "INSERT INTO picks (user_id, category_id, player_name, pick_value, season) VALUES (%s, %s, %s, %s, %s)",
+            (pick['user_id'], 6, pick['player_name'], pick['pick_value'], SEASON)
         )
 
-    # Insert dimaggio picks in picks
+    # Insert dimaggio picks with season
     for pick in picks['dimaggio']:
         cur.execute(
-            "INSERT INTO picks (user_id, category_id, pick_value) VALUES (%s, %s, %s)",
-            (pick['user_id'], 7, pick['pick_value'])
+            "INSERT INTO picks (user_id, category_id, pick_value, season) VALUES (%s, %s, %s, %s)",
+            (pick['user_id'], 7, pick['pick_value'], SEASON)
         )
 
     conn.commit()
@@ -221,21 +226,32 @@ def scrape_mbr_ids():
     # For each user, extract mbr_id from href of user name column
     users = []
     tables = soup.find_all('table', {'id': 'ranking'})
-    qualified_table = tables[0]
-    disqualified_table = tables[1]
 
-    for row in qualified_table.find_all('tr')[1:]: # remove 2 to get all users
-        columns = row.find_all('td')
-        user = columns[1].text.strip()
-        mbr_id = columns[1].find('a')['href'].split('=')[1].split('&')[0]
-        users.append({'user': user, 'mbr_id': mbr_id})
+    # First table is qualified users
+    if len(tables) >= 1:
+        qualified_table = tables[0]
+        for row in qualified_table.find_all('tr')[1:]:
+            columns = row.find_all('td')
+            if len(columns) > 1:
+                user = columns[1].text.strip()
+                link = columns[1].find('a')
+                if link and 'href' in link.attrs:
+                    mbr_id = link['href'].split('=')[1].split('&')[0]
+                    users.append({'user': user, 'mbr_id': mbr_id})
 
-    for row in disqualified_table.find_all('tr')[1:]:
-        columns = row.find_all('td')
-        user = columns[0].text.strip()
-        mbr_id = columns[0].find('a')['href'].split('=')[1].split('&')[0]
-        users.append({'user': user, 'mbr_id': mbr_id})
+    # Second table is disqualified users (may not exist at start of season)
+    if len(tables) >= 2:
+        disqualified_table = tables[1]
+        for row in disqualified_table.find_all('tr')[1:]:
+            columns = row.find_all('td')
+            if len(columns) > 0:
+                user = columns[0].text.strip()
+                link = columns[0].find('a')
+                if link and 'href' in link.attrs:
+                    mbr_id = link['href'].split('=')[1].split('&')[0]
+                    users.append({'user': user, 'mbr_id': mbr_id})
 
+    print(f"Found {len(users)} users")
     return users
 
 
@@ -422,18 +438,24 @@ def scrape_selected_rbi_champion_data(mbr_id):
     soup = BeautifulSoup(response.text, 'html.parser')
 
     selections = []
-    table = soup.find_all('table')
-    row = table[11].find_all('tr')[1]
-    columns = row.find_all('td')
-
-    selection = {
-        'selection_number': 1,
-        'player': columns[0].text.strip(),
-        'team': columns[1].text.strip(),
-        'actual_rbi': columns[2].text.strip(),
-        'ballot_rbi': columns[3].text.strip(),
-    }
-    selections.append(selection)
+    try:
+        table = soup.find_all('table')
+        if len(table) > 11:
+            rows = table[11].find_all('tr')
+            if len(rows) > 1:
+                row = rows[1]
+                columns = row.find_all('td')
+                if len(columns) >= 4:
+                    selection = {
+                        'selection_number': 1,
+                        'player': columns[0].text.strip(),
+                        'team': columns[1].text.strip(),
+                        'actual_rbi': columns[2].text.strip(),
+                        'ballot_rbi': columns[3].text.strip(),
+                    }
+                    selections.append(selection)
+    except (IndexError, AttributeError) as e:
+        print(f"Warning: Could not scrape RBI champion data for mbr_id {mbr_id}: {e}")
     return selections
 
 
@@ -458,18 +480,24 @@ def scrape_selected_stolen_base_champion_data(mbr_id):
     soup = BeautifulSoup(response.text, 'html.parser')
 
     selections = []
-    table = soup.find_all('table')
-    row = table[11].find_all('tr')[1]
-    columns = row.find_all('td')
-
-    selection = {
-        'selection_number': 1,
-        'player': columns[0].text.strip(),
-        'team': columns[1].text.strip(),
-        'actual_stolen_bases': columns[2].text.strip(),
-        'ballot_stolen_bases': columns[3].text.strip(),
-    }
-    selections.append(selection)
+    try:
+        table = soup.find_all('table')
+        if len(table) > 11:
+            rows = table[11].find_all('tr')
+            if len(rows) > 1:
+                row = rows[1]
+                columns = row.find_all('td')
+                if len(columns) >= 4:
+                    selection = {
+                        'selection_number': 1,
+                        'player': columns[0].text.strip(),
+                        'team': columns[1].text.strip(),
+                        'actual_stolen_bases': columns[2].text.strip(),
+                        'ballot_stolen_bases': columns[3].text.strip(),
+                    }
+                    selections.append(selection)
+    except (IndexError, AttributeError) as e:
+        print(f"Warning: Could not scrape stolen base champion for mbr_id {mbr_id}: {e}")
     return selections
 
 
@@ -492,16 +520,22 @@ def scrape_selected_dimaggio_data(mbr_id):
     soup = BeautifulSoup(response.text, 'html.parser')
 
     selections = []
-    table = soup.find_all('table')
-    row = table[11].find_all('tr')[1]
-    columns = row.find_all('td')
-
-    selection = {
-        'selection_number': 1,
-        'actual_longest_hitting_streak': columns[0].text.strip(),
-        'ballot_longest_hitting_streak': columns[1].text.strip(),
-    }
-    selections.append(selection)
+    try:
+        table = soup.find_all('table')
+        if len(table) > 11:
+            rows = table[11].find_all('tr')
+            if len(rows) > 1:
+                row = rows[1]
+                columns = row.find_all('td')
+                if len(columns) >= 2:
+                    selection = {
+                        'selection_number': 1,
+                        'actual_longest_hitting_streak': columns[0].text.strip(),
+                        'ballot_longest_hitting_streak': columns[1].text.strip(),
+                    }
+                    selections.append(selection)
+    except (IndexError, AttributeError) as e:
+        print(f"Warning: Could not scrape DiMaggio data for mbr_id {mbr_id}: {e}")
     return selections
 
 
