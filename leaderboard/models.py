@@ -39,15 +39,15 @@ class Player(models.Model):
     
 
 class Hitter(models.Model):
-    # Because each row in 'hitters' links to one unique player,
-    # we use OneToOneField with primary_key=True.
-    player = models.OneToOneField(
+    id = models.AutoField(primary_key=True)
+    player = models.ForeignKey(
         Player,
         on_delete=models.CASCADE,
-        primary_key=True,       # Tells Django 'player' is also the PK in 'hitters'.
-        db_column='player_id',  # Column name in the 'hitters' table
-        to_field='id'           # Matches 'id' in the 'players' table
+        db_column='player_id',
+        to_field='id',
+        related_name='hitter_seasons'
     )
+    season = models.IntegerField(db_column='season', default=2024)
 
     average = models.FloatField(db_column='average', null=True)
     ops = models.FloatField(db_column='ops', null=True)
@@ -58,21 +58,26 @@ class Hitter(models.Model):
 
     class Meta:
         db_table = 'hitters'
-
+        unique_together = [['player', 'season']]
+        indexes = [
+            models.Index(fields=['season']),
+            models.Index(fields=['player', 'season']),
+        ]
 
     def __str__(self):
-        return f'Hitting stats for {self.player.player_name}'
+        return f'Hitting stats for {self.player.player_name} ({self.season})'
     
 
 class Pitcher(models.Model):
-    # One-to-one relationship ensures each Player has a single pitcher record
-    player = models.OneToOneField(
+    id = models.AutoField(primary_key=True)
+    player = models.ForeignKey(
         Player,
         on_delete=models.CASCADE,
-        primary_key=True,       # 'player' is also the PK in 'pitchers'
-        db_column='player_id',  # Column name in the 'pitchers' table
-        to_field='id'           # Matches 'id' in the 'players' table
+        db_column='player_id',
+        to_field='id',
+        related_name='pitcher_seasons'
     )
+    season = models.IntegerField(db_column='season', default=2024)
 
     wins = models.IntegerField(db_column='wins', null=True)
     losses = models.IntegerField(db_column='losses', null=True)
@@ -81,17 +86,20 @@ class Pitcher(models.Model):
 
     class Meta:
         db_table = 'pitchers'
-
+        unique_together = [['player', 'season']]
+        indexes = [
+            models.Index(fields=['season']),
+            models.Index(fields=['player', 'season']),
+        ]
 
     def __str__(self):
-        return f'Pitching stats for {self.player.player_name}'
+        return f'Pitching stats for {self.player.player_name} ({self.season})'
     
     
 class Pick(models.Model):
     id = models.AutoField(primary_key=True)
 
     # user_id -> Foreign key to CustomUser
-    # Remember to specify db_column='user_id' so Django knows which column to map.
     user = models.ForeignKey(
         CustomUser,
         on_delete=models.CASCADE,
@@ -107,6 +115,9 @@ class Pick(models.Model):
         null=True
     )
 
+    # Season year for this pick
+    season = models.IntegerField(db_column='season', default=2024)
+
     # player_name -> It's just a string in the picks table, not a foreign key.
     player_name = models.CharField(max_length=101, db_column='player_name')
 
@@ -116,12 +127,32 @@ class Pick(models.Model):
     # pick_order -> The order in which this player was picked, can be null
     pick_order = models.IntegerField(db_column='pick_order', null=True, blank=True)
 
-    # pick_value -> If you’re not sure of the data type, start with IntegerField or FloatField
+    # pick_value -> For prediction categories (RBI, SB, DiMaggio)
     pick_value = models.IntegerField(db_column='pick_value', null=True, blank=True)
 
     class Meta:
         db_table = 'picks'
-
+        indexes = [
+            models.Index(fields=['season']),
+            models.Index(fields=['user', 'season']),
+            models.Index(fields=['user', 'category', 'season']),
+        ]
 
     def __str__(self):
-        return f"{self.user.name} - {self.category.name} - {self.player_name}"
+        return f"{self.user.name} - {self.category.name} - {self.player_name} ({self.season})"
+
+
+class SeasonStats(models.Model):
+    """
+    Stores league-wide season statistics for tracking things like
+    the longest hitting streak (DiMaggio Prize).
+    """
+    year = models.IntegerField(primary_key=True)
+    longest_hitting_streak = models.IntegerField(null=True, blank=True)
+    streak_holder_name = models.CharField(max_length=100, null=True, blank=True)
+
+    class Meta:
+        db_table = 'season_stats'
+
+    def __str__(self):
+        return f"Season Stats {self.year}"
