@@ -82,13 +82,44 @@ The backend is built with **Django** and interfaces with a PostgreSQL database.
 
 ---
 
-## Existing API Endpoints
+## API Endpoints
 
-Currently, there is one endpoint available:
+All leaderboard endpoints support an optional `?season=YYYY` query parameter to retrieve data for a specific season (defaults to 2024).
+
+### Leaderboard Endpoints
+
+- `GET /leaderboard/batters/`
+  - **Description**: Returns batting average leaderboard rankings. Users are ranked by aggregate batting average of their 10 qualified batters (alternates fill in for disqualified picks).
+  - **Query Parameters**: `?season=YYYY` (optional)
+
+- `GET /leaderboard/ops/`
+  - **Description**: Returns OPS leaderboard rankings. Uses the same batters as the batting average contest, ranked by aggregate OPS.
+  - **Query Parameters**: `?season=YYYY` (optional)
+
+- `GET /leaderboard/homeruns/`
+  - **Description**: Returns home run leaderboard rankings. Top 3 of 4 picked players count toward total home runs.
+  - **Query Parameters**: `?season=YYYY` (optional)
+
+- `GET /leaderboard/pitchers/`
+  - **Description**: Returns pitcher leaderboard rankings. Top 3 of 4 pitchers count toward total wins. Tiebreakers: 4th pick wins → win percentage → aggregate ERA → alternates average.
+  - **Query Parameters**: `?season=YYYY` (optional)
+
+- `GET /leaderboard/rbi-champion/`
+  - **Description**: Returns RBI champion leaderboard. Users must pick the correct player who leads MLB in RBIs. Among correct pickers, closest to actual RBI count wins.
+  - **Query Parameters**: `?season=YYYY` (optional)
+
+- `GET /leaderboard/stolen-bases/`
+  - **Description**: Returns stolen base champion leaderboard. Users must pick the correct player who leads MLB in stolen bases. Among correct pickers, closest to actual SB count wins.
+  - **Query Parameters**: `?season=YYYY` (optional)
+
+- `GET /leaderboard/dimaggio/`
+  - **Description**: Returns DiMaggio Prize leaderboard. Users predict the longest hitting streak of the season. Exact number required to win.
+  - **Query Parameters**: `?season=YYYY` (optional)
+
+### Supporting Endpoints
 
 - `GET /leaderboard/players/`
   - **Description**: Returns a JSON list of all players from the players table.
-  - **Usage**: Visit `http://127.0.0.1:8000/leaderboard/players/` in your browser or use a tool like **curl** or **Postman**.
   - **Sample Response**:
   ```json
   [
@@ -97,12 +128,12 @@ Currently, there is one endpoint available:
       "player_name": "Aaron Judge",
       "player_type": "hitter",
       "api_player_id": 123456
-    },
-    {
-      "id": 2,
-      "player_name": "Shohei Ohtani",
-      "player_type": "pitcher",
-      "api_player_id": 654321
     }
   ]
   ```
+
+- `GET /leaderboard/users/`
+  - **Description**: Returns a list of all contestants/users.
+
+- `GET /leaderboard/categories/`
+  - **Description**: Returns a list of competition categories with metadata (display name, picks per user, description).

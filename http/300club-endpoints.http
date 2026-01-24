@@ -1,0 +1,58 @@
+###
+# GET — All Players (raw list)
+GET http://127.0.0.1:8000/leaderboard/players/?season=2024
+Accept: application/json
+
+
+###
+# GET — Batters Leaderboard (Batting Average)
+GET http://127.0.0.1:8000/leaderboard/batters/
+Accept: application/json
+
+
+###
+# GET — OPS Leaderboard
+GET http://127.0.0.1:8000/leaderboard/ops/
+Accept: application/json
+
+
+###
+# GET — Home Run Leaderboard
+GET http://127.0.0.1:8000/leaderboard/homeruns/
+Accept: application/json
+
+
+###
+# GET — Pitchers Leaderboard
+GET http://127.0.0.1:8000/leaderboard/pitchers/
+Accept: application/json
+
+
+###
+# GET — RBI Champion Leaderboard
+GET http://127.0.0.1:8000/leaderboard/rbi-champion/
+Accept: application/json
+
+
+###
+# GET — Stolen Base Champion Leaderboard
+GET http://127.0.0.1:8000/leaderboard/stolen-bases/
+Accept: application/json
+
+
+###
+# GET — DiMaggio Prize Leaderboard
+GET http://127.0.0.1:8000/leaderboard/dimaggio/
+Accept: application/json
+
+
+###
+# GET — All Users (Contestants)
+GET http://127.0.0.1:8000/leaderboard/users/
+Accept: application/json
+
+
+###
+# GET — All Categories
+GET http://127.0.0.1:8000/leaderboard/categories/
+Accept: application/json
