@@ -119,10 +119,10 @@ def scrape_and_store_user_selections():
     }
     print("Scraping and storing user selections complete.")
 
-    print("Inserting stagnant data into the database...")
-    # Uncomment the following line to insert stagnant data into the database
-    insert_stagnant_data(users, categories, picks)
-    print("Stagnant data (users, categories, picks) inserted into the database.")
+    # Uncomment the following lines to insert stagnant data into the database
+    # print("Inserting stagnant data into the database...")
+    # insert_stagnant_data(users, categories, picks)
+    # print("Stagnant data (users, categories, picks) inserted into the database.")
 
 def insert_stagnant_data(users, categories, picks):
     '''
@@ -156,6 +156,16 @@ def insert_stagnant_data(users, categories, picks):
     # Categories are static - skip insertion as they already exist
     # (Categories: 1=batters, 2=alternate_batters, 3=pitchers, 4=home_run_hitters,
     #  5=rbi_champion, 6=stolen_base_champion, 7=dimaggio)
+
+    # Check if picks already exist for this season to avoid duplicates
+    cur.execute("SELECT COUNT(*) FROM picks WHERE season = %s", (SEASON,))
+    existing_picks = cur.fetchone()[0]
+    if existing_picks > 0:
+        print(f"Warning: {existing_picks} picks already exist for season {SEASON}. Skipping pick insertion to avoid duplicates.")
+        print("To re-import picks, first delete existing picks: DELETE FROM picks WHERE season = %s", SEASON)
+        cur.close()
+        conn.close()
+        return
 
     # Insert batter picks with season
     for pick in picks['batters']:
