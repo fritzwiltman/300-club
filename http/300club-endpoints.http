@@ -1,12 +1,12 @@
 ###
 # GET — All Players (raw list)
-GET http://127.0.0.1:8000/leaderboard/players/?season=2024
+GET http://127.0.0.1:8000/leaderboard/players/?season=2025
 Accept: application/json
 
 
 ###
 # GET — Batters Leaderboard (Batting Average)
-GET http://127.0.0.1:8000/leaderboard/batters/
+GET http://127.0.0.1:8000/leaderboard/batters/?season=2025
 Accept: application/json
 
 

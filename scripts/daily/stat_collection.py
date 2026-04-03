@@ -29,7 +29,7 @@ def get_db_connection():
 
 def fetch_hitter_stats(api_player_id):
     """
-    Fetches hitter stats from the MLB Stats API.
+    Fetches hitter stats from the MLB Stats API (regular season only).
 
     Args:
         api_player_id (int): The player's ID in the MLB Stats API.
@@ -39,9 +39,17 @@ def fetch_hitter_stats(api_player_id):
                If an error occurs, returns None.
     """
     try:
-        player_stats = statsapi.player_stat_data(api_player_id, group="hitting", type="season")
-        stats = player_stats['stats'][0]['stats']
-        
+        # Use person endpoint with hydrate and gameType=R for regular season only
+        response = statsapi.get(
+            'person',
+            {
+                'personId': api_player_id,
+                'hydrate': f'stats(group=[hitting],type=[season],season={SEASON},gameType=R)'
+            }
+        )
+        person = response['people'][0]
+        stats = person['stats'][0]['splits'][0]['stat']
+
         # Extract relevant stats
         average = stats.get('avg', 0)
         ops = stats.get('ops', 0)
@@ -49,7 +57,7 @@ def fetch_hitter_stats(api_player_id):
         home_runs = stats.get('homeRuns', 0)
         rbis = stats.get('rbi', 0)
         stolen_bases = stats.get('stolenBases', 0)
-        
+
         return average, ops, plate_appearances, home_runs, rbis, stolen_bases
     except Exception as e:
         print(f"Error fetching hitter stats for player {api_player_id}: {e}")
@@ -57,7 +65,7 @@ def fetch_hitter_stats(api_player_id):
 
 def fetch_pitcher_stats(api_player_id):
     """
-    Fetches pitcher stats from the MLB Stats API.
+    Fetches pitcher stats from the MLB Stats API (regular season only).
 
     Args:
         api_player_id (int): The player's ID in the MLB Stats API.
@@ -67,15 +75,23 @@ def fetch_pitcher_stats(api_player_id):
                If an error occurs, returns None.
     """
     try:
-        player_stats = statsapi.player_stat_data(api_player_id, group="pitching", type="season")
-        stats = player_stats['stats'][0]['stats']
-        
+        # Use person endpoint with hydrate and gameType=R for regular season only
+        response = statsapi.get(
+            'person',
+            {
+                'personId': api_player_id,
+                'hydrate': f'stats(group=[pitching],type=[season],season={SEASON},gameType=R)'
+            }
+        )
+        person = response['people'][0]
+        stats = person['stats'][0]['splits'][0]['stat']
+
         # Extract relevant stats
         wins = stats.get('wins', 0)
         losses = stats.get('losses', 0)
         era = stats.get('era', 0)
         strikeouts = stats.get('strikeOuts', 0)
-        
+
         return wins, losses, era, strikeouts
     except Exception as e:
         print(f"Error fetching pitcher stats for player {api_player_id}: {e}")

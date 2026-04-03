@@ -66,3 +66,13 @@ Thumbs.db
 
 # coverage files
 .coverage
+
+# Generated files
+player_ids.json
+
+# Claude Code context
+CLAUDE.md
+
+# Pipenv files (using requirements.txt instead)
+Pipfile
+Pipfile.lock
