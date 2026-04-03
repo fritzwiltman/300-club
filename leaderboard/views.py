@@ -21,8 +21,8 @@ from leaderboard.serializers import (
 )
 
 
-# Default season for API queries (will be parameterized later)
-DEFAULT_SEASON = 2024
+# Default season for API queries
+DEFAULT_SEASON = 2025
 
 
 def get_season_from_request(request):
@@ -54,7 +54,7 @@ def player_list(request):
 
 def calculate_pro_rated_plate_appearances():
     """Calculate the minimum plate appearances required based on how many weeks have passed since March 18 (for 2025 season)"""
-    SEASON_START = date(2024, 3, 18)
+    SEASON_START = date(2026, 3, 25)
     TOTAL_WEEKS = 27
     FULL_SEASON_PA = 502
 

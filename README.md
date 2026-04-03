@@ -84,56 +84,254 @@ The backend is built with **Django** and interfaces with a PostgreSQL database.
 
 ## API Endpoints
 
-All leaderboard endpoints support an optional `?season=YYYY` query parameter to retrieve data for a specific season (defaults to 2024).
+All leaderboard endpoints support an optional `?season=YYYY` query parameter to retrieve data for a specific season (defaults to 2025).
 
 ### Leaderboard Endpoints
 
-- `GET /leaderboard/batters/`
-  - **Description**: Returns batting average leaderboard rankings. Users are ranked by aggregate batting average of their 10 qualified batters (alternates fill in for disqualified picks).
-  - **Query Parameters**: `?season=YYYY` (optional)
+#### `GET /leaderboard/batters/`
 
-- `GET /leaderboard/ops/`
-  - **Description**: Returns OPS leaderboard rankings. Uses the same batters as the batting average contest, ranked by aggregate OPS.
-  - **Query Parameters**: `?season=YYYY` (optional)
+Returns batting average leaderboard rankings. Users are ranked by aggregate batting average of their 10 qualified batters (alternates fill in for disqualified picks).
 
-- `GET /leaderboard/homeruns/`
-  - **Description**: Returns home run leaderboard rankings. Top 3 of 4 picked players count toward total home runs.
-  - **Query Parameters**: `?season=YYYY` (optional)
+**Query Parameters**: `?season=YYYY` (optional)
 
-- `GET /leaderboard/pitchers/`
-  - **Description**: Returns pitcher leaderboard rankings. Top 3 of 4 pitchers count toward total wins. Tiebreakers: 4th pick wins → win percentage → aggregate ERA → alternates average.
-  - **Query Parameters**: `?season=YYYY` (optional)
+**Response Schema**:
+```json
+[
+  {
+    "user_name": "string",
+    "aggregate_average": "number | null",
+    "alternate_average": "number | null",
+    "aggregate_ops": "number | null",
+    "qualified_picks": [
+      { "player_name": "string", "average": "number", "ops": "number" }
+    ],
+    "disqualified_picks": [
+      { "player_name": "string", "plate_appearances": "number" }
+    ],
+    "rank": "number (0 = disqualified)"
+  }
+]
+```
 
-- `GET /leaderboard/rbi-champion/`
-  - **Description**: Returns RBI champion leaderboard. Users must pick the correct player who leads MLB in RBIs. Among correct pickers, closest to actual RBI count wins.
-  - **Query Parameters**: `?season=YYYY` (optional)
+---
 
-- `GET /leaderboard/stolen-bases/`
-  - **Description**: Returns stolen base champion leaderboard. Users must pick the correct player who leads MLB in stolen bases. Among correct pickers, closest to actual SB count wins.
-  - **Query Parameters**: `?season=YYYY` (optional)
+#### `GET /leaderboard/ops/`
 
-- `GET /leaderboard/dimaggio/`
-  - **Description**: Returns DiMaggio Prize leaderboard. Users predict the longest hitting streak of the season. Exact number required to win.
-  - **Query Parameters**: `?season=YYYY` (optional)
+Returns OPS leaderboard rankings. Uses the same batters as the batting average contest, ranked by aggregate OPS.
+
+**Query Parameters**: `?season=YYYY` (optional)
+
+**Response Schema**:
+```json
+[
+  {
+    "user_name": "string",
+    "aggregate_ops": "number | null",
+    "alternate_average": "number | null",
+    "qualified_picks": [
+      { "player_name": "string", "ops": "number", "average": "number" }
+    ],
+    "disqualified_picks": [
+      { "player_name": "string", "plate_appearances": "number" }
+    ],
+    "rank": "number (0 = disqualified)"
+  }
+]
+```
+
+---
+
+#### `GET /leaderboard/homeruns/`
+
+Returns home run leaderboard rankings. Top 3 of 4 picked players count toward total home runs.
+
+**Query Parameters**: `?season=YYYY` (optional)
+
+**Response Schema**:
+```json
+[
+  {
+    "user_name": "string",
+    "top_three_total_homeruns": "number",
+    "first_tiebreaker_homeruns": "number | null",
+    "second_tiebreaker_average": "number",
+    "rank": "number",
+    "all_homerun_picks": [
+      { "player_name": "string", "home_runs": "number" }
+    ],
+    "alternate_batters_picks": [
+      { "player_name": "string", "average": "number", "is_disqualified": "boolean" }
+    ]
+  }
+]
+```
+
+---
+
+#### `GET /leaderboard/pitchers/`
+
+Returns pitcher leaderboard rankings. Top 3 of 4 pitchers count toward total wins.
+
+**Tiebreakers**: 4th pick wins → win percentage → aggregate ERA → alternates average
+
+**Query Parameters**: `?season=YYYY` (optional)
+
+**Response Schema**:
+```json
+[
+  {
+    "user_name": "string",
+    "top_three_total_wins": "number",
+    "first_tiebreaker_wins": "number | null",
+    "second_tiebreaker_win_pct": "number | null",
+    "third_tiebreaker_era": "number | null",
+    "fourth_tiebreaker_alt_avg": "number | null",
+    "rank": "number",
+    "pitcher_picks": [
+      {
+        "player_name": "string",
+        "wins": "number",
+        "losses": "number",
+        "era": "number | null",
+        "strikeouts": "number"
+      }
+    ]
+  }
+]
+```
+
+---
+
+#### `GET /leaderboard/rbi-champion/`
+
+Returns RBI champion leaderboard. Users must pick the correct player who leads MLB in RBIs. Among correct pickers, closest to actual RBI count wins.
+
+**Query Parameters**: `?season=YYYY` (optional)
+
+**Response Schema**:
+```json
+{
+  "actual_rbi_leader": {
+    "player_name": "string",
+    "rbis": "number"
+  },
+  "leaderboard": [
+    {
+      "user_name": "string",
+      "predicted_player": "string",
+      "predicted_rbis": "number | null",
+      "predicted_correct_player": "boolean",
+      "rbi_difference": "number | null",
+      "alternates_average": "number | null",
+      "rank": "number | null"
+    }
+  ]
+}
+```
+
+---
+
+#### `GET /leaderboard/stolen-bases/`
+
+Returns stolen base champion leaderboard. Users must pick the correct player who leads MLB in stolen bases. Among correct pickers, closest to actual SB count wins.
+
+**Query Parameters**: `?season=YYYY` (optional)
+
+**Response Schema**:
+```json
+{
+  "actual_sb_leader": {
+    "player_name": "string",
+    "stolen_bases": "number"
+  },
+  "leaderboard": [
+    {
+      "user_name": "string",
+      "predicted_player": "string",
+      "predicted_stolen_bases": "number | null",
+      "predicted_correct_player": "boolean",
+      "sb_difference": "number | null",
+      "alternates_average": "number | null",
+      "rank": "number | null"
+    }
+  ]
+}
+```
+
+---
+
+#### `GET /leaderboard/dimaggio/`
+
+Returns DiMaggio Prize leaderboard. Users predict the longest hitting streak of the season. Exact number required to win.
+
+**Query Parameters**: `?season=YYYY` (optional)
+
+**Response Schema**:
+```json
+{
+  "actual_longest_streak": "number | null",
+  "streak_holder_name": "string | null",
+  "leaderboard": [
+    {
+      "user_name": "string",
+      "predicted_streak": "number | null",
+      "is_exact_match": "boolean",
+      "alternates_average": "number | null",
+      "rank": "number | null"
+    }
+  ]
+}
+```
 
 ### Supporting Endpoints
 
-- `GET /leaderboard/players/`
-  - **Description**: Returns a JSON list of all players from the players table.
-  - **Sample Response**:
-  ```json
-  [
-    {
-      "id": 1,
-      "player_name": "Aaron Judge",
-      "player_type": "hitter",
-      "api_player_id": 123456
-    }
-  ]
-  ```
+#### `GET /leaderboard/players/`
 
-- `GET /leaderboard/users/`
-  - **Description**: Returns a list of all contestants/users.
+Returns a JSON list of all players from the players table.
 
-- `GET /leaderboard/categories/`
-  - **Description**: Returns a list of competition categories with metadata (display name, picks per user, description).
+**Response Schema**:
+```json
+[
+  {
+    "id": "number",
+    "player_name": "string",
+    "player_type": "hitter | pitcher",
+    "api_player_id": "number | null"
+  }
+]
+```
+
+---
+
+#### `GET /leaderboard/users/`
+
+Returns a list of all contestants/users.
+
+**Response Schema**:
+```json
+[
+  {
+    "mbr_id": "number",
+    "name": "string"
+  }
+]
+```
+
+---
+
+#### `GET /leaderboard/categories/`
+
+Returns a list of competition categories with metadata.
+
+**Response Schema**:
+```json
+[
+  {
+    "id": "number",
+    "name": "string",
+    "display_name": "string",
+    "picks_per_user": "number",
+    "description": "string"
+  }
+]
+```

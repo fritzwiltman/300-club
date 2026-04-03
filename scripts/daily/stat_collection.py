@@ -9,6 +9,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'
 # Import the database configuration from config.py
 from config.config import DATABASE
 
+# Season year for stats to update
+SEASON = 2025
+
 def get_db_connection():
     """
     Connects to the PostgreSQL database.
@@ -26,7 +29,7 @@ def get_db_connection():
 
 def fetch_hitter_stats(api_player_id):
     """
-    Fetches hitter stats from the MLB Stats API.
+    Fetches hitter stats from the MLB Stats API (regular season only).
 
     Args:
         api_player_id (int): The player's ID in the MLB Stats API.
@@ -36,9 +39,17 @@ def fetch_hitter_stats(api_player_id):
                If an error occurs, returns None.
     """
     try:
-        player_stats = statsapi.player_stat_data(api_player_id, group="hitting", type="season")
-        stats = player_stats['stats'][0]['stats']
-        
+        # Use person endpoint with hydrate and gameType=R for regular season only
+        response = statsapi.get(
+            'person',
+            {
+                'personId': api_player_id,
+                'hydrate': f'stats(group=[hitting],type=[season],season={SEASON},gameType=R)'
+            }
+        )
+        person = response['people'][0]
+        stats = person['stats'][0]['splits'][0]['stat']
+
         # Extract relevant stats
         average = stats.get('avg', 0)
         ops = stats.get('ops', 0)
@@ -46,7 +57,7 @@ def fetch_hitter_stats(api_player_id):
         home_runs = stats.get('homeRuns', 0)
         rbis = stats.get('rbi', 0)
         stolen_bases = stats.get('stolenBases', 0)
-        
+
         return average, ops, plate_appearances, home_runs, rbis, stolen_bases
     except Exception as e:
         print(f"Error fetching hitter stats for player {api_player_id}: {e}")
@@ -54,7 +65,7 @@ def fetch_hitter_stats(api_player_id):
 
 def fetch_pitcher_stats(api_player_id):
     """
-    Fetches pitcher stats from the MLB Stats API.
+    Fetches pitcher stats from the MLB Stats API (regular season only).
 
     Args:
         api_player_id (int): The player's ID in the MLB Stats API.
@@ -64,15 +75,23 @@ def fetch_pitcher_stats(api_player_id):
                If an error occurs, returns None.
     """
     try:
-        player_stats = statsapi.player_stat_data(api_player_id, group="pitching", type="season")
-        stats = player_stats['stats'][0]['stats']
-        
+        # Use person endpoint with hydrate and gameType=R for regular season only
+        response = statsapi.get(
+            'person',
+            {
+                'personId': api_player_id,
+                'hydrate': f'stats(group=[pitching],type=[season],season={SEASON},gameType=R)'
+            }
+        )
+        person = response['people'][0]
+        stats = person['stats'][0]['splits'][0]['stat']
+
         # Extract relevant stats
         wins = stats.get('wins', 0)
         losses = stats.get('losses', 0)
         era = stats.get('era', 0)
         strikeouts = stats.get('strikeOuts', 0)
-        
+
         return wins, losses, era, strikeouts
     except Exception as e:
         print(f"Error fetching pitcher stats for player {api_player_id}: {e}")
@@ -80,7 +99,7 @@ def fetch_pitcher_stats(api_player_id):
 
 def update_hitter_stats(player_id, stats):
     """
-    Updates the hitter stats in the database.
+    Updates the hitter stats in the database for the current season.
 
     Args:
         player_id (int): The ID of the player in the database.
@@ -93,8 +112,8 @@ def update_hitter_stats(player_id, stats):
         cur.execute("""
             UPDATE hitters
             SET average = %s, ops = %s, plate_appearances = %s, home_runs = %s, rbis = %s, stolen_bases = %s
-            WHERE player_id = %s;
-        """, (stats[0], stats[1], stats[2], stats[3], stats[4], stats[5], player_id))
+            WHERE player_id = %s AND season = %s;
+        """, (stats[0], stats[1], stats[2], stats[3], stats[4], stats[5], player_id, SEASON))
 
         conn.commit()
     except Exception as e:
@@ -105,7 +124,7 @@ def update_hitter_stats(player_id, stats):
 
 def update_pitcher_stats(player_id, stats):
     """
-    Updates the pitcher stats in the database.
+    Updates the pitcher stats in the database for the current season.
 
     Args:
         player_id (int): The ID of the player in the database.
@@ -118,8 +137,8 @@ def update_pitcher_stats(player_id, stats):
         cur.execute("""
             UPDATE pitchers
             SET wins = %s, losses = %s, era = %s, strikeouts = %s
-            WHERE player_id = %s;
-        """, (stats[0], stats[1], stats[2], stats[3], player_id))
+            WHERE player_id = %s AND season = %s;
+        """, (stats[0], stats[1], stats[2], stats[3], player_id, SEASON))
 
         conn.commit()
     except Exception as e:
@@ -130,33 +149,48 @@ def update_pitcher_stats(player_id, stats):
 
 def update_player_stats():
     """
-    Fetches and updates all player stats in the database.
+    Fetches and updates all player stats in the database for the current season.
+    Only updates players that have hitter/pitcher rows for the current season.
     """
     conn = get_db_connection()
     cur = conn.cursor()
 
     try:
-        # Fetch all hitters and update their stats
+        # Fetch hitters for the current season and update their stats
         cur.execute("""
-            SELECT id, api_player_id FROM players WHERE player_type = 'hitter' AND api_player_id IS NOT NULL;
-        """)
+            SELECT p.id, p.api_player_id
+            FROM players p
+            JOIN hitters h ON h.player_id = p.id
+            WHERE p.player_type = 'hitter'
+              AND p.api_player_id IS NOT NULL
+              AND h.season = %s;
+        """, (SEASON,))
         hitters = cur.fetchall()
 
+        print(f"Updating stats for {len(hitters)} hitters in {SEASON} season...")
         for player_id, api_player_id in hitters:
             stats = fetch_hitter_stats(api_player_id)
             if stats:
                 update_hitter_stats(player_id, stats)
 
-        # Fetch all pitchers and update their stats
+        # Fetch pitchers for the current season and update their stats
         cur.execute("""
-            SELECT id, api_player_id FROM players WHERE player_type = 'pitcher' AND api_player_id IS NOT NULL;
-        """)
+            SELECT p.id, p.api_player_id
+            FROM players p
+            JOIN pitchers pt ON pt.player_id = p.id
+            WHERE p.player_type = 'pitcher'
+              AND p.api_player_id IS NOT NULL
+              AND pt.season = %s;
+        """, (SEASON,))
         pitchers = cur.fetchall()
 
+        print(f"Updating stats for {len(pitchers)} pitchers in {SEASON} season...")
         for player_id, api_player_id in pitchers:
             stats = fetch_pitcher_stats(api_player_id)
             if stats:
                 update_pitcher_stats(player_id, stats)
+
+        print("Stats update complete.")
 
     except Exception as e:
         print(f"Error during the update process: {e}")
