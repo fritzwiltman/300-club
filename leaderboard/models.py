@@ -47,7 +47,7 @@ class Hitter(models.Model):
         to_field='id',
         related_name='hitter_seasons'
     )
-    season = models.IntegerField(db_column='season', default=2024)
+    season = models.IntegerField(db_column='season', default=2025)
 
     average = models.FloatField(db_column='average', null=True)
     ops = models.FloatField(db_column='ops', null=True)
@@ -77,7 +77,7 @@ class Pitcher(models.Model):
         to_field='id',
         related_name='pitcher_seasons'
     )
-    season = models.IntegerField(db_column='season', default=2024)
+    season = models.IntegerField(db_column='season', default=2025)
 
     wins = models.IntegerField(db_column='wins', null=True)
     losses = models.IntegerField(db_column='losses', null=True)
@@ -116,7 +116,7 @@ class Pick(models.Model):
     )
 
     # Season year for this pick
-    season = models.IntegerField(db_column='season', default=2024)
+    season = models.IntegerField(db_column='season', default=2025)
 
     # player_name -> It's just a string in the picks table, not a foreign key.
     player_name = models.CharField(max_length=101, db_column='player_name')
