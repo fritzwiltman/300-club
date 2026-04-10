@@ -6,7 +6,7 @@ from django.shortcuts import render
 # Create your views here.
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Player, Pick, Hitter, Pitcher, CustomUser, Category, SeasonStats
+from .models import Player, Pick, Hitter, Pitcher, CustomUser, Category, SeasonStats, MlbLeader
 from leaderboard.serializers import (
     HitterLeaderboardSerializer,
     HomerunLeaderboardSerializer,
@@ -800,3 +800,83 @@ def category_list(request):
 
     serializer = CategorySerializer(result, many=True)
     return Response(serializer.data, status=200)
+
+
+# =============================================================================
+# MLB League Leaders Endpoints
+# =============================================================================
+
+def get_mlb_leaders_from_db(category, season):
+    """
+    Fetch league leaders from database.
+
+    Args:
+        category: MLB stat category (e.g., 'battingAverage', 'homeRuns', 'wins')
+        season: The season year
+
+    Returns:
+        List of leader dictionaries with rank, player_name, team, value, headshot_url
+    """
+    leaders = MlbLeader.objects.filter(
+        season=season,
+        category=category
+    ).order_by('rank')[:20]
+
+    return [
+        {
+            'rank': leader.rank,
+            'player_name': leader.player_name,
+            'team': leader.team,
+            'value': leader.value,
+            'headshot_url': leader.headshot_url
+        }
+        for leader in leaders
+    ]
+
+
+@api_view(['GET'])
+def batters_mlb_leaders(request):
+    """Return top 20 MLB batting average leaders."""
+    season = get_season_from_request(request)
+    leaders = get_mlb_leaders_from_db('battingAverage', season)
+    return Response({'leaders': leaders}, status=200)
+
+
+@api_view(['GET'])
+def ops_mlb_leaders(request):
+    """Return top 20 MLB OPS leaders."""
+    season = get_season_from_request(request)
+    leaders = get_mlb_leaders_from_db('onBasePlusSlugging', season)
+    return Response({'leaders': leaders}, status=200)
+
+
+@api_view(['GET'])
+def homeruns_mlb_leaders(request):
+    """Return top 20 MLB home run leaders."""
+    season = get_season_from_request(request)
+    leaders = get_mlb_leaders_from_db('homeRuns', season)
+    return Response({'leaders': leaders}, status=200)
+
+
+@api_view(['GET'])
+def pitchers_mlb_leaders(request):
+    """Return top 20 MLB pitching wins leaders."""
+    season = get_season_from_request(request)
+    leaders = get_mlb_leaders_from_db('wins', season)
+    return Response({'leaders': leaders}, status=200)
+
+
+@api_view(['GET'])
+def rbi_mlb_leaders(request):
+    """Return top 20 MLB RBI leaders."""
+    season = get_season_from_request(request)
+    leaders = get_mlb_leaders_from_db('runsBattedIn', season)
+    return Response({'leaders': leaders}, status=200)
+
+
+@api_view(['GET'])
+def stolen_bases_mlb_leaders(request):
+    """Return top 20 MLB stolen base leaders."""
+    season = get_season_from_request(request)
+    leaders = get_mlb_leaders_from_db('stolenBases', season)
+    return Response({'leaders': leaders}, status=200)

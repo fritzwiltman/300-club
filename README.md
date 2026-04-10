@@ -283,6 +283,83 @@ Returns DiMaggio Prize leaderboard. Users predict the longest hitting streak of 
 }
 ```
 
+### MLB League Leaders Endpoints
+
+These endpoints return the top 20 MLB players for each statistical category, fetched live from the MLB Stats API. Useful for displaying league-wide leaders alongside user picks.
+
+#### `GET /leaderboard/batters/mlb-leaders/`
+
+Returns top 20 MLB batting average leaders.
+
+**Query Parameters**: `?season=YYYY` (optional)
+
+**Response Schema**:
+```json
+{
+  "leaders": [
+    {
+      "rank": 1,
+      "player_name": "Luis Arraez",
+      "team": "SD",
+      "value": 0.354,
+      "headshot_url": "https://img.mlbstatic.com/mlb-photos/image/upload/w_180,q_100/v1/people/660670/headshot/silo/current"
+    }
+  ]
+}
+```
+
+---
+
+#### `GET /leaderboard/ops/mlb-leaders/`
+
+Returns top 20 MLB OPS leaders.
+
+**Query Parameters**: `?season=YYYY` (optional)
+
+**Response Schema**: Same as batters/mlb-leaders (value is OPS, e.g., 0.945)
+
+---
+
+#### `GET /leaderboard/homeruns/mlb-leaders/`
+
+Returns top 20 MLB home run leaders.
+
+**Query Parameters**: `?season=YYYY` (optional)
+
+**Response Schema**: Same as batters/mlb-leaders (value is HR count, e.g., 58)
+
+---
+
+#### `GET /leaderboard/pitchers/mlb-leaders/`
+
+Returns top 20 MLB pitching wins leaders.
+
+**Query Parameters**: `?season=YYYY` (optional)
+
+**Response Schema**: Same as batters/mlb-leaders (value is win count, e.g., 18)
+
+---
+
+#### `GET /leaderboard/rbi-champion/mlb-leaders/`
+
+Returns top 20 MLB RBI leaders.
+
+**Query Parameters**: `?season=YYYY` (optional)
+
+**Response Schema**: Same as batters/mlb-leaders (value is RBI count, e.g., 144)
+
+---
+
+#### `GET /leaderboard/stolen-bases/mlb-leaders/`
+
+Returns top 20 MLB stolen base leaders.
+
+**Query Parameters**: `?season=YYYY` (optional)
+
+**Response Schema**: Same as batters/mlb-leaders (value is SB count, e.g., 67)
+
+---
+
 ### Supporting Endpoints
 
 #### `GET /leaderboard/players/`

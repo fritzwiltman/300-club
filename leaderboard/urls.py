@@ -10,6 +10,13 @@ from .views import (
     dimaggio_leaderboard,
     user_list,
     category_list,
+    # MLB Leaders endpoints
+    batters_mlb_leaders,
+    ops_mlb_leaders,
+    homeruns_mlb_leaders,
+    pitchers_mlb_leaders,
+    rbi_mlb_leaders,
+    stolen_bases_mlb_leaders,
 )
 
 urlpatterns = [
@@ -24,6 +31,14 @@ urlpatterns = [
     path('rbi-champion/', rbi_champion_leaderboard, name='rbi_champion_leaderboard'),
     path('stolen-bases/', stolen_base_leaderboard, name='stolen_base_leaderboard'),
     path('dimaggio/', dimaggio_leaderboard, name='dimaggio_leaderboard'),
+
+    # MLB League Leaders endpoints
+    path('batters/mlb-leaders/', batters_mlb_leaders, name='batters_mlb_leaders'),
+    path('ops/mlb-leaders/', ops_mlb_leaders, name='ops_mlb_leaders'),
+    path('homeruns/mlb-leaders/', homeruns_mlb_leaders, name='homeruns_mlb_leaders'),
+    path('pitchers/mlb-leaders/', pitchers_mlb_leaders, name='pitchers_mlb_leaders'),
+    path('rbi-champion/mlb-leaders/', rbi_mlb_leaders, name='rbi_mlb_leaders'),
+    path('stolen-bases/mlb-leaders/', stolen_bases_mlb_leaders, name='stolen_bases_mlb_leaders'),
 
     # Supporting endpoints
     path('users/', user_list, name='user_list'),

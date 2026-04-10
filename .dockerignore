@@ -1,0 +1,42 @@
+# Never include secrets or dev artifacts in the image
+config/.env.local
+config/.env.staging
+config/.env.production
+config/config.py
+.env
+.env.*
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+
+# Test / dev tools
+.coverage
+htmlcov/
+.pytest_cache/
+tests/
+
+# Version control
+.git/
+.gitignore
+
+# Docs / tooling
+*.md
+.vscode/
+.idea/
+.claude/
+CLAUDE.md
+
+# SQLite dev database
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Generated
+player_ids.json
+staticfiles/
