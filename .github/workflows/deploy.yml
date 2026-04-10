@@ -1,0 +1,96 @@
+# -----------------------------------------------------------------------
+# Backend deployment workflow
+#
+# Triggers: push to main branch, or manual dispatch (workflow_dispatch).
+#
+# What it does:
+#   1. Connects to the Lightsail instance over SSH
+#   2. Pulls latest code from the main branch
+#   3. Rebuilds the Docker image
+#   4. Restarts the Docker Compose stack (zero-downtime: new container
+#      starts before old one stops because Gunicorn handles graceful
+#      shutdown and postgres data is on a named volume)
+#
+# Required GitHub repository secrets (Settings → Secrets → Actions):
+#   LIGHTSAIL_HOST      - Public IP or hostname of the Lightsail instance
+#   LIGHTSAIL_USER      - SSH username (usually 'ubuntu' or 'ec2-user')
+#   LIGHTSAIL_SSH_KEY   - Private SSH key (full PEM content, including headers)
+#
+# Server-side prerequisites (set up once manually — see DEPLOYMENT.md):
+#   - Docker and Docker Compose installed
+#   - Repo cloned to /opt/leaderboard/backend
+#   - /opt/leaderboard/.env.production exists (chmod 600)
+#   - Docker Compose started for the first time
+# -----------------------------------------------------------------------
+
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # Allow manual triggers from the GitHub Actions UI
+
+jobs:
+  deploy:
+    name: Deploy to Lightsail
+    runs-on: ubuntu-latest
+
+    steps:
+      # ------------------------------------------------------------------
+      # 1. Write the SSH private key to disk
+      # ------------------------------------------------------------------
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.LIGHTSAIL_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Add host to known_hosts to avoid interactive prompt
+          ssh-keyscan -H "${{ secrets.LIGHTSAIL_HOST }}" >> ~/.ssh/known_hosts
+
+      # ------------------------------------------------------------------
+      # 2. Deploy over SSH
+      # ------------------------------------------------------------------
+      - name: Deploy via SSH
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=yes \
+              "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
+              'bash -s' << 'ENDSSH'
+
+            set -euo pipefail
+
+            echo "=== Pulling latest code ==="
+            cd /opt/leaderboard/backend
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "=== Loading environment ==="
+            # The .env.production file must exist on the server.
+            # It is NOT pulled from git — it lives only on the server.
+            set -a
+            source /opt/leaderboard/.env.production
+            set +a
+
+            echo "=== Building and restarting containers ==="
+            cd /opt/leaderboard/backend/deploy
+            docker compose --env-file /opt/leaderboard/.env.production pull db || true
+            docker compose --env-file /opt/leaderboard/.env.production \
+              up --build --detach --remove-orphans
+
+            echo "=== Running migrations ==="
+            docker compose --env-file /opt/leaderboard/.env.production \
+              exec -T web python manage.py migrate --noinput
+
+            echo "=== Pruning old images ==="
+            docker image prune -f
+
+            echo "=== Deploy complete ==="
+
+          ENDSSH
+
+      # ------------------------------------------------------------------
+      # 3. Clean up key from runner
+      # ------------------------------------------------------------------
+      - name: Clean up SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

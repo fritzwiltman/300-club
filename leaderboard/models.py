@@ -156,3 +156,43 @@ class SeasonStats(models.Model):
 
     def __str__(self):
         return f"Season Stats {self.year}"
+
+
+class MlbLeader(models.Model):
+    """
+    Stores MLB league leaders for each statistical category.
+    Updated daily by stat_collection.py script.
+    """
+    CATEGORY_CHOICES = [
+        ('battingAverage', 'Batting Average'),
+        ('onBasePlusSlugging', 'OPS'),
+        ('homeRuns', 'Home Runs'),
+        ('wins', 'Wins'),
+        ('runsBattedIn', 'RBIs'),
+        ('stolenBases', 'Stolen Bases'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    season = models.IntegerField(db_column='season')
+    category = models.CharField(max_length=50, db_column='category')
+    rank = models.IntegerField(db_column='rank')
+    player_name = models.CharField(max_length=100, db_column='player_name')
+    team = models.CharField(max_length=10, db_column='team', null=True)
+    value = models.FloatField(db_column='value')
+    api_player_id = models.IntegerField(db_column='api_player_id', null=True)
+
+    class Meta:
+        db_table = 'mlb_leaders'
+        indexes = [
+            models.Index(fields=['season', 'category']),
+        ]
+
+    def __str__(self):
+        return f"{self.category} #{self.rank}: {self.player_name} ({self.season})"
+
+    @property
+    def headshot_url(self):
+        """Generate MLB headshot URL for this player."""
+        if self.api_player_id:
+            return f"https://img.mlbstatic.com/mlb-photos/image/upload/w_180,q_100/v1/people/{self.api_player_id}/headshot/silo/current"
+        return None

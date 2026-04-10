@@ -198,5 +198,107 @@ def update_player_stats():
         cur.close()
         conn.close()
 
+
+def fetch_mlb_leaders(category, stat_group, limit=20):
+    """
+    Fetch league leaders from MLB Stats API.
+
+    Args:
+        category: MLB stat category (e.g., 'battingAverage', 'homeRuns', 'wins')
+        stat_group: 'hitting' or 'pitching'
+        limit: Number of leaders to return (default 20)
+
+    Returns:
+        List of leader tuples (rank, player_name, team, value, api_player_id)
+    """
+    try:
+        response = statsapi.get('stats_leaders', {
+            'leaderCategories': category,
+            'season': SEASON,
+            'limit': limit,
+            'statGroup': stat_group,
+            'gameTypes': 'R',
+            'hydrate': 'team'
+        })
+
+        if not response.get('leagueLeaders') or not response['leagueLeaders'][0].get('leaders'):
+            return []
+
+        leaders = []
+        for leader in response['leagueLeaders'][0]['leaders']:
+            person = leader.get('person', {})
+            team = leader.get('team', {})
+
+            # Parse the value - could be decimal string or integer string
+            raw_value = leader.get('value', '0')
+            try:
+                if '.' in str(raw_value):
+                    value = float(raw_value)
+                else:
+                    value = float(int(raw_value))
+            except (ValueError, TypeError):
+                value = 0.0
+
+            leaders.append((
+                leader.get('rank'),
+                person.get('fullName'),
+                team.get('abbreviation'),
+                value,
+                person.get('id')
+            ))
+
+        return leaders
+    except Exception as e:
+        print(f"Error fetching MLB leaders for {category}: {e}")
+        return []
+
+
+def update_mlb_leaders():
+    """
+    Fetches and stores MLB league leaders for all categories.
+    Replaces existing data for the current season.
+    """
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # Categories to fetch: (category_name, stat_group)
+    categories = [
+        ('battingAverage', 'hitting'),
+        ('onBasePlusSlugging', 'hitting'),
+        ('homeRuns', 'hitting'),
+        ('wins', 'pitching'),
+        ('runsBattedIn', 'hitting'),
+        ('stolenBases', 'hitting'),
+    ]
+
+    try:
+        # Delete existing leaders for this season
+        cur.execute("DELETE FROM mlb_leaders WHERE season = %s", (SEASON,))
+        print(f"Cleared existing MLB leaders for {SEASON} season")
+
+        total_inserted = 0
+        for category, stat_group in categories:
+            leaders = fetch_mlb_leaders(category, stat_group)
+            print(f"Fetched {len(leaders)} {category} leaders")
+
+            for rank, player_name, team, value, api_player_id in leaders:
+                cur.execute("""
+                    INSERT INTO mlb_leaders (season, category, rank, player_name, team, value, api_player_id)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (SEASON, category, rank, player_name, team, value, api_player_id))
+                total_inserted += 1
+
+        conn.commit()
+        print(f"Inserted {total_inserted} MLB leader records for {SEASON} season")
+
+    except Exception as e:
+        print(f"Error updating MLB leaders: {e}")
+        conn.rollback()
+    finally:
+        cur.close()
+        conn.close()
+
+
 if __name__ == '__main__':
     update_player_stats()
+    update_mlb_leaders()

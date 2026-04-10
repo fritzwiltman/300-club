@@ -1,18 +1,26 @@
-# Ignore config and environment files
-config/config.py
+# ---------------------------------------------------------------
+# Environment and secret files — never commit these
+# ---------------------------------------------------------------
 config/.env.local
+config/.env.staging
 config/.env.production
+config/config.py
+.env
+.env.*
+!.env.example
+!config/.env.example
+!deploy/.env.production.example
 
-
-# Byte-compiled / optimized / DLL files
+# ---------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
 *.so
-
-# Distribution / packaging
+*.egg
+*.egg-info/
+.installed.cfg
 .Python
 env/
 venv/
@@ -26,53 +34,60 @@ lib64/
 parts/
 sdist/
 var/
-*.egg-info/
-.installed.cfg
-*.egg
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Django stuff:
-# SQLite database
+# ---------------------------------------------------------------
+# Django
+# ---------------------------------------------------------------
 *.sqlite3
-
-# Django migrations
-**/migrations/*.py
-**/migrations/*.pyc
-!**/migrations/__init__.py
-
-# Media / Uploaded files
+staticfiles/
 media/
 uploads/
 
-# Django stuff (if using local settings):
-# .env, .env.* files store sensitive info
-*.env
+# Migrations are committed intentionally in this project.
+# If you want to exclude them uncomment the next two lines:
+# **/migrations/*.py
+# !**/migrations/__init__.py
 
+# ---------------------------------------------------------------
 # Logs
+# ---------------------------------------------------------------
 *.log
+logs/
 
-# IDE or editor-specific files
+# ---------------------------------------------------------------
+# Test / coverage
+# ---------------------------------------------------------------
+.coverage
+htmlcov/
+.pytest_cache/
+
+# ---------------------------------------------------------------
+# IDE
+# ---------------------------------------------------------------
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# Mac files
+# ---------------------------------------------------------------
+# OS
+# ---------------------------------------------------------------
 .DS_Store
 Thumbs.db
 
-# coverage files
-.coverage
-
-# Generated files
+# ---------------------------------------------------------------
+# Generated data files
+# ---------------------------------------------------------------
 player_ids.json
 
-# Claude Code context
-CLAUDE.md
-
-# Pipenv files (using requirements.txt instead)
+# ---------------------------------------------------------------
+# Pipenv (using requirements.txt instead)
+# ---------------------------------------------------------------
 Pipfile
 Pipfile.lock
+
+# ---------------------------------------------------------------
+# Claude Code context
+# ---------------------------------------------------------------
+.claude/
+CLAUDE.md
