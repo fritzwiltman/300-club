@@ -22,7 +22,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 
 # Default season — update this at the start of each MLB season
-DEFAULT_SEASON = 2025
+DEFAULT_SEASON = 2026
 
 # Categories to fetch for MLB league leaders
 LEADER_CATEGORIES = [
