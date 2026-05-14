@@ -10,7 +10,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'
 from config.config import DATABASE
 
 # Season year for stats to update
-SEASON = 2025
+SEASON = 2026
 
 def get_db_connection():
     """

@@ -1,4 +1,4 @@
-import requests
+import cloudscraper
 from bs4 import BeautifulSoup
 import psycopg2
 import sys
@@ -9,7 +9,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'
 from config.config import DATABASE
 
 # Season year for the data being scraped
-SEASON = 2025
+SEASON = 2026
+
+# Create cloudscraper instance to bypass Cloudflare protection
+scraper = cloudscraper.create_scraper()
 
 
 def scrape_and_store_user_selections():
@@ -119,10 +122,10 @@ def scrape_and_store_user_selections():
     }
     print("Scraping and storing user selections complete.")
 
-    # Uncomment the following lines to insert stagnant data into the database
-    # print("Inserting stagnant data into the database...")
-    # insert_stagnant_data(users, categories, picks)
-    # print("Stagnant data (users, categories, picks) inserted into the database.")
+    # Insert data into the database
+    print("Inserting stagnant data into the database...")
+    insert_stagnant_data(users, categories, picks)
+    print("Stagnant data (users, categories, picks) inserted into the database.")
 
 def insert_stagnant_data(users, categories, picks):
     '''
@@ -230,7 +233,7 @@ def scrape_mbr_ids():
         list: A list of dictionaries, where each dictionary contains the 'user' and 'mbr_id' keys.
     """
     url = 'https://www.300club.org/CntstRanking.asp?contest_id=2&contest_name=Batters'
-    response = requests.get(url)
+    response = scraper.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
 
     # For each user, extract mbr_id from href of user name column
@@ -284,27 +287,32 @@ def scrape_selected_batters_data(mbr_id):
             - 'disqualified': A boolean indicating if the player is disqualified or not (by not meeting plate appearance minimum).
     """
     url = f'https://www.300club.org/RankingPerMember.asp?mbr_id={mbr_id}&contest_id=2&contest_name=Batters'
-    response = requests.get(url)
+    response = scraper.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
 
     selections = []
-    table = soup.find_all('table')
+    try:
+        table = soup.find_all('table')
+        if len(table) <= 10:
+            return selections
 
-    for row in table[10].find_all('tr')[3:13]:
-        try:
-            columns = row.find_all('td')
-            selection = {
-                'selection_number': columns[0].text.strip(),
-                'player': columns[1].text.strip(),
-                'team': columns[2].text.strip(),
-                'average': columns[3].text.strip(),
-                'plate_appearances': columns[4].text.strip(),
-                'ops': columns[5].text.strip(),
-                'disqualified': False if columns[6].text.strip() == '' else True,
-            }
-            selections.append(selection)
-        except IndexError:
-            break
+        for row in table[10].find_all('tr')[3:13]:
+            try:
+                columns = row.find_all('td')
+                selection = {
+                    'selection_number': columns[0].text.strip(),
+                    'player': columns[1].text.strip(),
+                    'team': columns[2].text.strip(),
+                    'average': columns[3].text.strip(),
+                    'plate_appearances': columns[4].text.strip(),
+                    'ops': columns[5].text.strip(),
+                    'disqualified': False if columns[6].text.strip() == '' else True,
+                }
+                selections.append(selection)
+            except IndexError:
+                break
+    except (IndexError, AttributeError) as e:
+        print(f"Warning: Could not scrape batters for mbr_id {mbr_id}: {e}")
     return selections
 
 
@@ -326,29 +334,34 @@ def scrape_selected_alternate_batters(mbr_id):
             - 'disqualified': A boolean indicating if the player is disqualified or not.
     """
     url = f'https://www.300club.org/RankingPerMember.asp?mbr_id={mbr_id}&contest_id=5&contest_name=Alternates'
-    response = requests.get(url)
+    response = scraper.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
 
     selections = []
-    table = soup.find_all('table')
+    try:
+        table = soup.find_all('table')
+        if len(table) <= 11:
+            return selections
 
-    selection_number = 1
-    for row in table[11].find_all('tr')[1:6]:
-        try:
-            columns = row.find_all('td')
-            selection = {
-                'selection_number': selection_number,
-                'player': columns[0].text.strip(),
-                'team': columns[1].text.strip(),
-                'average': columns[2].text.strip(),
-                'plate_appearances': columns[3].text.strip(),
-                'ops': columns[4].text.strip(),
-                'disqualified': False if columns[5].text.strip() == '' else True,
-            }
-            selection_number += 1
-            selections.append(selection)
-        except IndexError:
-            break
+        selection_number = 1
+        for row in table[11].find_all('tr')[1:6]:
+            try:
+                columns = row.find_all('td')
+                selection = {
+                    'selection_number': selection_number,
+                    'player': columns[0].text.strip(),
+                    'team': columns[1].text.strip(),
+                    'average': columns[2].text.strip(),
+                    'plate_appearances': columns[3].text.strip(),
+                    'ops': columns[4].text.strip(),
+                    'disqualified': False if columns[5].text.strip() == '' else True,
+                }
+                selection_number += 1
+                selections.append(selection)
+            except IndexError:
+                break
+    except (IndexError, AttributeError) as e:
+        print(f"Warning: Could not scrape alternate batters for mbr_id {mbr_id}: {e}")
     return selections
 
 
@@ -368,26 +381,31 @@ def scrape_selected_pitchers_data(mbr_id):
             - wins (str): The number of wins for the player.
     """
     url = f'https://www.300club.org/RankingPerMember.asp?mbr_id={mbr_id}&contest_id=3&contest_name=Pitchers'
-    response = requests.get(url)
+    response = scraper.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
 
     selections = []
-    table = soup.find_all('table')
-    selection_number = 1
+    try:
+        table = soup.find_all('table')
+        if len(table) <= 11:
+            return selections
 
-    for row in table[11].find_all('tr')[1:5]:
-        try:
-            columns = row.find_all('td')
-            selection = {
-                'selection_number': selection_number,
-                'player': columns[0].text.strip(),
-                'team': columns[1].text.strip(),
-                'wins': columns[2].text.strip(),
-            }
-            selection_number += 1
-            selections.append(selection)
-        except IndexError:
-            break  
+        selection_number = 1
+        for row in table[11].find_all('tr')[1:5]:
+            try:
+                columns = row.find_all('td')
+                selection = {
+                    'selection_number': selection_number,
+                    'player': columns[0].text.strip(),
+                    'team': columns[1].text.strip(),
+                    'wins': columns[2].text.strip(),
+                }
+                selection_number += 1
+                selections.append(selection)
+            except IndexError:
+                break
+    except (IndexError, AttributeError) as e:
+        print(f"Warning: Could not scrape pitchers for mbr_id {mbr_id}: {e}")
     return selections
 
 
@@ -407,23 +425,31 @@ def scrape_selected_home_run_data(mbr_id):
           - home_runs: The number of home runs.
     """
     url = f'https://www.300club.org/RankingPerMember.asp?mbr_id={mbr_id}&contest_id=6&contest_name=Home+Run+Hitters'
-    response = requests.get(url)
+    response = scraper.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
 
     selections = []
-    table = soup.find_all('table')
-    selection_number = 1
+    try:
+        table = soup.find_all('table')
+        if len(table) <= 11:
+            return selections
 
-    for row in table[11].find_all('tr')[1:5]:
-        columns = row.find_all('td')
-        selection = {
-            'selection_number': selection_number,
-            'player': columns[0].text.strip(),
-            'team': columns[1].text.strip(),
-            'home_runs': columns[2].text.strip(),
-        }
-        selection_number += 1
-        selections.append(selection)
+        selection_number = 1
+        for row in table[11].find_all('tr')[1:5]:
+            try:
+                columns = row.find_all('td')
+                selection = {
+                    'selection_number': selection_number,
+                    'player': columns[0].text.strip(),
+                    'team': columns[1].text.strip(),
+                    'home_runs': columns[2].text.strip(),
+                }
+                selection_number += 1
+                selections.append(selection)
+            except IndexError:
+                break
+    except (IndexError, AttributeError) as e:
+        print(f"Warning: Could not scrape home run hitters for mbr_id {mbr_id}: {e}")
     return selections
 
 
@@ -444,7 +470,7 @@ def scrape_selected_rbi_champion_data(mbr_id):
             - 'ballot_rbi': The RBI count from the ballot.
     """
     url = f'https://www.300club.org/RankingPerMember.asp?mbr_id={mbr_id}&contest_id=7&contest_name=RBI+Champion'
-    response = requests.get(url)
+    response = scraper.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
 
     selections = []
@@ -486,7 +512,7 @@ def scrape_selected_stolen_base_champion_data(mbr_id):
             - 'ballot_stolen_bases': The ballot stolen bases of the player.
     """
     url = f'https://www.300club.org/RankingPerMember.asp?mbr_id={mbr_id}&contest_id=8&contest_name=Stolen+Base+Champion'
-    response = requests.get(url)
+    response = scraper.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
 
     selections = []
@@ -526,7 +552,7 @@ def scrape_selected_dimaggio_data(mbr_id):
             - 'ballot_longest_hitting_streak': The ballot longest hitting streak.
     """
     url = f'https://www.300club.org/RankingPerMember.asp?mbr_id={mbr_id}&contest_id=9&contest_name=DiMaggio+Prize'
-    response = requests.get(url)
+    response = scraper.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
 
     selections = []

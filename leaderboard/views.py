@@ -22,7 +22,7 @@ from leaderboard.serializers import (
 
 
 # Default season for API queries
-DEFAULT_SEASON = 2025
+DEFAULT_SEASON = 2026
 
 
 def get_season_from_request(request):
@@ -44,6 +44,17 @@ def build_pitcher_stats_lookup(season):
     """Build a lookup dict of player_name -> pitcher stats for a given season."""
     pitchers = Pitcher.objects.filter(season=season).select_related('player')
     return {p.player.player_name: p for p in pitchers}
+
+
+def get_users_with_picks(season):
+    """
+    Get users who have picks for the given season.
+    This filters out duplicate user entries and inactive users.
+    """
+    user_ids_with_picks = Pick.objects.filter(
+        season=season
+    ).values_list('user_id', flat=True).distinct()
+    return list(CustomUser.objects.filter(mbr_id__in=user_ids_with_picks))
 
 @api_view(['GET'])
 def player_list(request):
@@ -82,7 +93,8 @@ def hitter_leaderboard(request):
     season = get_season_from_request(request)
 
     # Prefetch all data to avoid N+1 queries
-    users = list(CustomUser.objects.all())
+    # Only include users who have picks for this season
+    users = get_users_with_picks(season)
     all_picks = Pick.objects.filter(category_id__in=[1, 2], season=season).select_related('user')
     hitter_stats = build_hitter_stats_lookup(season)
 
@@ -195,7 +207,8 @@ def homerun_leaderboard(request):
     season = get_season_from_request(request)
 
     # Prefetch all data to avoid N+1 queries
-    users = list(CustomUser.objects.all())
+    # Only include users who have picks for this season
+    users = get_users_with_picks(season)
     all_picks = Pick.objects.filter(category_id__in=[2, 4], season=season).select_related('user')
     hitter_stats = build_hitter_stats_lookup(season)
 
@@ -318,7 +331,8 @@ def ops_leaderboard(request):
     season = get_season_from_request(request)
 
     # Prefetch all data to avoid N+1 queries
-    users = list(CustomUser.objects.all())
+    # Only include users who have picks for this season
+    users = get_users_with_picks(season)
     all_picks = Pick.objects.filter(category_id__in=[1, 2], season=season).select_related('user')
     hitter_stats = build_hitter_stats_lookup(season)
 
@@ -430,7 +444,8 @@ def pitcher_leaderboard(request):
     season = get_season_from_request(request)
 
     # Prefetch all data
-    users = list(CustomUser.objects.all())
+    # Only include users who have picks for this season
+    users = get_users_with_picks(season)
     pitcher_picks = Pick.objects.filter(category_id=3, season=season).select_related('user')
     pitcher_stats = build_pitcher_stats_lookup(season)
     hitter_stats = build_hitter_stats_lookup(season)
@@ -538,7 +553,8 @@ def rbi_champion_leaderboard(request):
         }
 
     # Prefetch data
-    users = list(CustomUser.objects.all())
+    # Only include users who have picks for this season
+    users = get_users_with_picks(season)
     rbi_picks = Pick.objects.filter(category_id=5, season=season).select_related('user')
     hitter_stats = build_hitter_stats_lookup(season)
 
@@ -623,7 +639,8 @@ def stolen_base_leaderboard(request):
         }
 
     # Prefetch data
-    users = list(CustomUser.objects.all())
+    # Only include users who have picks for this season
+    users = get_users_with_picks(season)
     sb_picks = Pick.objects.filter(category_id=6, season=season).select_related('user')
     hitter_stats = build_hitter_stats_lookup(season)
 
@@ -703,7 +720,8 @@ def dimaggio_leaderboard(request):
     streak_holder_name = season_stats.streak_holder_name if season_stats else None
 
     # Prefetch data
-    users = list(CustomUser.objects.all())
+    # Only include users who have picks for this season
+    users = get_users_with_picks(season)
     dimaggio_picks = Pick.objects.filter(category_id=7, season=season).select_related('user')
     hitter_stats = build_hitter_stats_lookup(season)
 

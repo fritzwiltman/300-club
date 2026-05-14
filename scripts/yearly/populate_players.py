@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'
 from config.config import DATABASE
 
 # Season year for the data being populated
-SEASON = 2025
+SEASON = 2026
 
 
 def populate_player_tables():
