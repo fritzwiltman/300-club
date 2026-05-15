@@ -63,12 +63,7 @@ services:
       # Bind mount so nginx on the HOST can serve Django's static files directly.
       # The directory must exist on the host: mkdir -p /opt/leaderboard/staticfiles
       - /opt/leaderboard/staticfiles:/app/staticfiles
-    command: >
-      sh -c "python manage.py collectstatic --noinput &&
-             python manage.py migrate --noinput &&
-             gunicorn --bind 0.0.0.0:8000 --workers 2 --timeout 60
-               --access-logfile - --error-logfile -
-               backend.wsgi:application"
+    command: sh -c "python manage.py collectstatic --noinput && python manage.py migrate --noinput && gunicorn --bind 0.0.0.0:8000 --workers 2 --timeout 60 --access-logfile - --error-logfile - backend.wsgi:application"
 
 volumes:
   postgres_data:
