@@ -92,14 +92,15 @@ class RbiChampionEntrySerializer(serializers.Serializer):
     user_name = serializers.CharField()
     predicted_player = serializers.CharField()
     predicted_rbis = serializers.IntegerField(allow_null=True)
-    predicted_correct_player = serializers.BooleanField()
-    rbi_difference = serializers.IntegerField(allow_null=True)
+    picked_player_ytd_rbi = serializers.IntegerField()
+    deviation = serializers.IntegerField(allow_null=True)
     alternates_average = serializers.FloatField(allow_null=True)
     rank = serializers.IntegerField(allow_null=True)
 
 
 class RbiChampionLeaderboardSerializer(serializers.Serializer):
     actual_rbi_leader = serializers.DictField(allow_null=True)
+    prorated_projection = serializers.FloatField(allow_null=True)
     leaderboard = RbiChampionEntrySerializer(many=True)
 
 
@@ -107,14 +108,15 @@ class StolenBaseEntrySerializer(serializers.Serializer):
     user_name = serializers.CharField()
     predicted_player = serializers.CharField()
     predicted_stolen_bases = serializers.IntegerField(allow_null=True)
-    predicted_correct_player = serializers.BooleanField()
-    sb_difference = serializers.IntegerField(allow_null=True)
+    picked_player_ytd_sb = serializers.IntegerField()
+    deviation = serializers.IntegerField(allow_null=True)
     alternates_average = serializers.FloatField(allow_null=True)
     rank = serializers.IntegerField(allow_null=True)
 
 
 class StolenBaseLeaderboardSerializer(serializers.Serializer):
     actual_sb_leader = serializers.DictField(allow_null=True)
+    prorated_projection = serializers.FloatField(allow_null=True)
     leaderboard = StolenBaseEntrySerializer(many=True)
 
 

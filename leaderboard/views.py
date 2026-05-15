@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import date, timedelta
+import unicodedata
 from django.http import JsonResponse
 from django.shortcuts import render
 
@@ -32,6 +33,18 @@ def get_season_from_request(request):
         return int(season)
     except (ValueError, TypeError):
         return DEFAULT_SEASON
+
+
+def normalize_name(name):
+    """
+    Normalize a player name for accent-insensitive comparison.
+    Removes diacritics (e.g., ñ -> n, é -> e) and lowercases.
+    """
+    if not name:
+        return ""
+    # Decompose unicode characters, filter out combining marks, then lowercase
+    normalized = unicodedata.normalize('NFD', name)
+    return ''.join(c for c in normalized if unicodedata.category(c) != 'Mn').lower()
 
 
 def build_hitter_stats_lookup(season):
@@ -74,13 +87,63 @@ def calculate_pro_rated_plate_appearances():
     # If the season hasn't started, return 0 to avoid division errors
     if today < SEASON_START:
         return 0
-    
+
     # Calculate the number of weeks elapsed since SEASON_START
     days_elapsed = (today - SEASON_START).days
     weeks_elapsed = (days_elapsed // 7)
     weeks_elapsed = min(weeks_elapsed, TOTAL_WEEKS)
 
     return FULL_SEASON_PA * (weeks_elapsed / TOTAL_WEEKS) # Pro-rated plate appearances
+
+
+def get_season_progress():
+    """
+    Returns season progress info for prorated calculations.
+
+    Uses games-based calculation (162 games per season) rather than calendar days,
+    matching how 300club.org calculates projections.
+
+    Returns:
+        tuple: (games_played, total_games, progress_ratio)
+        - games_played: estimated games played so far
+        - total_games: 162 (full MLB season)
+        - progress_ratio: games_played / 162
+    """
+    SEASON_START = date(2026, 3, 27)  # Opening Day 2026
+    TOTAL_GAMES = 162
+
+    today = date.today()
+
+    if today < SEASON_START:
+        return 0, TOTAL_GAMES, 0.0
+
+    days_elapsed = (today - SEASON_START).days
+
+    # Estimate games played: ~0.75 games per day on average early season
+    # This accounts for off days, rainouts, and matches 300club.org's calculation
+    # (162 games over ~215 calendar days = 0.75 games/day effective rate)
+    games_played = min(round(days_elapsed * 0.75), TOTAL_GAMES)
+
+    progress_ratio = games_played / TOTAL_GAMES
+
+    return games_played, TOTAL_GAMES, progress_ratio
+
+
+def calculate_prorated_projection(ytd_value, games_played, total_games):
+    """
+    Calculate the prorated end-of-season projection based on current pace.
+
+    Args:
+        ytd_value: Current year-to-date stat value
+        games_played: Games played in season so far
+        total_games: Total games in season (162)
+
+    Returns:
+        Projected end-of-season value, or ytd_value if season hasn't started
+    """
+    if games_played <= 0:
+        return ytd_value
+    return ytd_value * (total_games / games_played)
     
 
 @api_view(['GET'])
@@ -537,26 +600,48 @@ def pitcher_leaderboard(request):
 def rbi_champion_leaderboard(request):
     """
     Calculate and return RBI champion leaderboard.
-    Must pick the correct player who leads MLB in RBIs.
-    Among correct pickers, closest to actual RBI count wins.
+
+    Ranking logic (per 300club.org rules):
+    1. Get each user's picked player's current YTD RBIs
+    2. Sort users by their picked player's YTD RBIs (descending) - higher RBI player = better rank
+    3. Within same YTD RBI group, sort by |deviation| ascending (closest guess wins)
+    4. Tiebreaker: alternates_average (higher is better)
+
+    Deviation is calculated against the prorated projection of the current MLB leader.
     """
     min_plate_appearances = calculate_pro_rated_plate_appearances()
     season = get_season_from_request(request)
+    days_elapsed, total_days, _ = get_season_progress()
 
-    # Find actual RBI leader from hitters table for the given season
-    rbi_leader = Hitter.objects.filter(season=season).select_related('player').order_by('-rbis').first()
+    # Get actual MLB RBI leader from mlb_leaders table
+    mlb_rbi_leader = MlbLeader.objects.filter(
+        season=season,
+        category='runsBattedIn',
+        rank=1
+    ).first()
+
     actual_rbi_leader = None
-    if rbi_leader:
+    if mlb_rbi_leader:
         actual_rbi_leader = {
-            "player_name": rbi_leader.player.player_name,
-            "rbis": rbi_leader.rbis or 0
+            "player_name": mlb_rbi_leader.player_name,
+            "rbis": int(mlb_rbi_leader.value) if mlb_rbi_leader.value else 0
         }
 
+    # Calculate prorated end-of-season projection based on current leader
+    prorated_projection = None
+    if actual_rbi_leader and days_elapsed > 0:
+        prorated_projection = calculate_prorated_projection(
+            actual_rbi_leader["rbis"], days_elapsed, total_days
+        )
+
     # Prefetch data
-    # Only include users who have picks for this season
     users = get_users_with_picks(season)
     rbi_picks = Pick.objects.filter(category_id=5, season=season).select_related('user')
     hitter_stats = build_hitter_stats_lookup(season)
+
+    # Build lookup of normalized player_name -> current YTD RBIs from mlb_leaders
+    mlb_leaders = MlbLeader.objects.filter(season=season, category='runsBattedIn')
+    player_ytd_rbi = {normalize_name(leader.player_name): int(leader.value) for leader in mlb_leaders}
 
     # Group picks by user
     picks_by_user = {}
@@ -569,50 +654,48 @@ def rbi_champion_leaderboard(request):
         if not pick:
             continue
 
-        predicted_correct = False
-        rbi_difference = None
+        predicted_player = pick.player_name
+        predicted_rbis = pick.pick_value or 0
 
-        if actual_rbi_leader and pick.player_name == actual_rbi_leader["player_name"]:
-            predicted_correct = True
-            predicted_rbis = pick.pick_value or 0
-            rbi_difference = abs(actual_rbi_leader["rbis"] - predicted_rbis)
+        # Get this player's current YTD RBIs (0 if not in leaders)
+        # Use normalized name for accent-insensitive matching
+        picked_player_ytd_rbi = player_ytd_rbi.get(normalize_name(predicted_player), 0)
+
+        # Calculate deviation from prorated projection (signed integer)
+        deviation = None
+        if prorated_projection is not None:
+            deviation = round(predicted_rbis - prorated_projection)
 
         alt_avg = get_qualified_alternates_average(user.mbr_id, min_plate_appearances, hitter_stats, season)
 
         leaderboard.append({
             "user_name": user.name,
-            "predicted_player": pick.player_name,
-            "predicted_rbis": pick.pick_value,
-            "predicted_correct_player": predicted_correct,
-            "rbi_difference": rbi_difference,
+            "predicted_player": predicted_player,
+            "predicted_rbis": predicted_rbis,
+            "picked_player_ytd_rbi": picked_player_ytd_rbi,
+            "deviation": deviation,
             "alternates_average": round(alt_avg, 4) if alt_avg else None,
             "rank": None
         })
 
-    # Sort: correct pickers first (by difference, then alternates avg), then incorrect pickers
-    correct_pickers = [e for e in leaderboard if e["predicted_correct_player"]]
-    incorrect_pickers = [e for e in leaderboard if not e["predicted_correct_player"]]
-
-    correct_pickers.sort(
+    # Sort by: picked player's YTD RBIs (desc), then |deviation| (asc), then alternates_average (desc)
+    leaderboard.sort(
         key=lambda e: (
-            e["rbi_difference"] or float('inf'),
+            -e["picked_player_ytd_rbi"],
+            abs(e["deviation"]) if e["deviation"] is not None else float('inf'),
             -(e["alternates_average"] or 0)
         )
     )
 
-    for rank, entry in enumerate(correct_pickers, start=1):
+    # Assign ranks
+    for rank, entry in enumerate(leaderboard, start=1):
         entry["rank"] = rank
-
-    # Incorrect pickers get no rank (prize not awarded if wrong player)
-    for entry in incorrect_pickers:
-        entry["rank"] = None
-
-    final_leaderboard = correct_pickers + incorrect_pickers
 
     try:
         serializer = RbiChampionLeaderboardSerializer({
             "actual_rbi_leader": actual_rbi_leader,
-            "leaderboard": final_leaderboard
+            "prorated_projection": round(prorated_projection, 1) if prorated_projection else None,
+            "leaderboard": leaderboard
         })
         return Response(serializer.data, status=200, content_type='application/json')
     except Exception as e:
@@ -623,26 +706,48 @@ def rbi_champion_leaderboard(request):
 def stolen_base_leaderboard(request):
     """
     Calculate and return stolen base champion leaderboard.
-    Must pick the correct player who leads MLB in stolen bases.
-    Among correct pickers, closest to actual SB count wins.
+
+    Ranking logic (per 300club.org rules):
+    1. Get each user's picked player's current YTD stolen bases
+    2. Sort users by their picked player's YTD SBs (descending) - higher SB player = better rank
+    3. Within same YTD SB group, sort by |deviation| ascending (closest guess wins)
+    4. Tiebreaker: alternates_average (higher is better)
+
+    Deviation is calculated against the prorated projection of the current MLB leader.
     """
     min_plate_appearances = calculate_pro_rated_plate_appearances()
     season = get_season_from_request(request)
+    days_elapsed, total_days, _ = get_season_progress()
 
-    # Find actual SB leader from hitters table for the given season
-    sb_leader = Hitter.objects.filter(season=season).select_related('player').order_by('-stolen_bases').first()
+    # Get actual MLB stolen base leader from mlb_leaders table
+    mlb_sb_leader = MlbLeader.objects.filter(
+        season=season,
+        category='stolenBases',
+        rank=1
+    ).first()
+
     actual_sb_leader = None
-    if sb_leader:
+    if mlb_sb_leader:
         actual_sb_leader = {
-            "player_name": sb_leader.player.player_name,
-            "stolen_bases": sb_leader.stolen_bases or 0
+            "player_name": mlb_sb_leader.player_name,
+            "stolen_bases": int(mlb_sb_leader.value) if mlb_sb_leader.value else 0
         }
 
+    # Calculate prorated end-of-season projection based on current leader
+    prorated_projection = None
+    if actual_sb_leader and days_elapsed > 0:
+        prorated_projection = calculate_prorated_projection(
+            actual_sb_leader["stolen_bases"], days_elapsed, total_days
+        )
+
     # Prefetch data
-    # Only include users who have picks for this season
     users = get_users_with_picks(season)
     sb_picks = Pick.objects.filter(category_id=6, season=season).select_related('user')
     hitter_stats = build_hitter_stats_lookup(season)
+
+    # Build lookup of normalized player_name -> current YTD stolen bases from mlb_leaders
+    mlb_leaders = MlbLeader.objects.filter(season=season, category='stolenBases')
+    player_ytd_sb = {normalize_name(leader.player_name): int(leader.value) for leader in mlb_leaders}
 
     # Group picks by user
     picks_by_user = {}
@@ -655,49 +760,48 @@ def stolen_base_leaderboard(request):
         if not pick:
             continue
 
-        predicted_correct = False
-        sb_difference = None
+        predicted_player = pick.player_name
+        predicted_sb = pick.pick_value or 0
 
-        if actual_sb_leader and pick.player_name == actual_sb_leader["player_name"]:
-            predicted_correct = True
-            predicted_sb = pick.pick_value or 0
-            sb_difference = abs(actual_sb_leader["stolen_bases"] - predicted_sb)
+        # Get this player's current YTD stolen bases (0 if not in leaders)
+        # Use normalized name for accent-insensitive matching
+        picked_player_ytd_sb = player_ytd_sb.get(normalize_name(predicted_player), 0)
+
+        # Calculate deviation from prorated projection (signed integer)
+        deviation = None
+        if prorated_projection is not None:
+            deviation = round(predicted_sb - prorated_projection)
 
         alt_avg = get_qualified_alternates_average(user.mbr_id, min_plate_appearances, hitter_stats, season)
 
         leaderboard.append({
             "user_name": user.name,
-            "predicted_player": pick.player_name,
-            "predicted_stolen_bases": pick.pick_value,
-            "predicted_correct_player": predicted_correct,
-            "sb_difference": sb_difference,
+            "predicted_player": predicted_player,
+            "predicted_stolen_bases": predicted_sb,
+            "picked_player_ytd_sb": picked_player_ytd_sb,
+            "deviation": deviation,
             "alternates_average": round(alt_avg, 4) if alt_avg else None,
             "rank": None
         })
 
-    # Sort: correct pickers first, then by difference, then alternates avg
-    correct_pickers = [e for e in leaderboard if e["predicted_correct_player"]]
-    incorrect_pickers = [e for e in leaderboard if not e["predicted_correct_player"]]
-
-    correct_pickers.sort(
+    # Sort by: picked player's YTD SBs (desc), then |deviation| (asc), then alternates_average (desc)
+    leaderboard.sort(
         key=lambda e: (
-            e["sb_difference"] or float('inf'),
+            -e["picked_player_ytd_sb"],
+            abs(e["deviation"]) if e["deviation"] is not None else float('inf'),
             -(e["alternates_average"] or 0)
         )
     )
 
-    for rank, entry in enumerate(correct_pickers, start=1):
+    # Assign ranks
+    for rank, entry in enumerate(leaderboard, start=1):
         entry["rank"] = rank
-
-    for entry in incorrect_pickers:
-        entry["rank"] = None
-
-    final_leaderboard = correct_pickers + incorrect_pickers
 
     try:
         serializer = StolenBaseLeaderboardSerializer({
             "actual_sb_leader": actual_sb_leader,
-            "leaderboard": final_leaderboard
+            "prorated_projection": round(prorated_projection, 1) if prorated_projection else None,
+            "leaderboard": leaderboard
         })
         return Response(serializer.data, status=200, content_type='application/json')
     except Exception as e:
