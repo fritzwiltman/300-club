@@ -82,6 +82,60 @@ The backend is built with **Django** and interfaces with a PostgreSQL database.
 
 ---
 
+## Testing
+
+The project uses **pytest** with **pytest-django** for testing. Tests are located in `leaderboard/tests/`.
+
+### Running Tests
+
+1. **Run all tests**
+   ```bash
+   pytest
+   ```
+
+2. **Run tests with verbose output**
+   ```bash
+   pytest -v
+   ```
+
+3. **Run a specific test file**
+   ```bash
+   pytest leaderboard/tests/test_models.py -v
+   pytest leaderboard/tests/test_views.py -v
+   pytest leaderboard/tests/test_serializers.py -v
+   ```
+
+4. **Run a specific test**
+   ```bash
+   pytest leaderboard/tests/test_views.py::test_hitter_leaderboard -v
+   ```
+
+5. **Run tests with coverage report**
+   ```bash
+   pytest --cov=leaderboard --cov-report=term-missing
+   ```
+
+### Test Structure
+
+| File | Description |
+|------|-------------|
+| `test_models.py` | Model tests (string representations, constraints, nullable fields) |
+| `test_serializers.py` | Serializer validation tests for all leaderboard serializers |
+| `test_views.py` | API endpoint tests and helper function unit tests |
+| `conftest.py` | Shared pytest fixtures |
+
+### Pre-Deployment Verification
+
+Before deploying to production, always verify all tests pass:
+
+```bash
+pytest -v
+```
+
+Expected output: All tests should pass (132+ tests).
+
+---
+
 ## API Endpoints
 
 All leaderboard endpoints support an optional `?season=YYYY` query parameter to retrieve data for a specific season (defaults to 2025).
