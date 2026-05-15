@@ -34,6 +34,7 @@ jobs:
   deploy:
     name: Deploy to Lightsail
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
       # ------------------------------------------------------------------
