@@ -91,7 +91,7 @@ def calculate_pro_rated_plate_appearances():
     weeks_elapsed = days_elapsed / 7  # continuous weeks, not floored
     weeks_elapsed = min(weeks_elapsed, TOTAL_WEEKS)
 
-    return FULL_SEASON_PA * (weeks_elapsed / TOTAL_WEEKS)
+    return int(FULL_SEASON_PA * (weeks_elapsed / TOTAL_WEEKS))
 
 
 def get_season_progress():
