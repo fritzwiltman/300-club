@@ -15,6 +15,14 @@ Usage:
 Cron entry (on the Lightsail host, runs daily at 6 AM ET = 10 AM UTC):
     0 10 * * * cd /opt/leaderboard/backend && docker compose exec -T web \
         python manage.py collect_stats >> /var/log/leaderboard/collect_stats.log 2>&1
+
+Note on OPS calculation:
+    OPS is calculated manually from raw stats rather than using the API's
+    pre-calculated value. The MLB API returns OPS rounded to 3 decimals,
+    but 300club.org uses 5 decimals for ranking tiebreakers. We compute:
+        OBP = (H + BB + HBP) / (AB + BB + HBP + SF)
+        SLG = (1B + 2*2B + 3*3B + 4*HR) / AB
+        OPS = OBP + SLG (rounded to 5 decimals)
 """
 
 import statsapi
@@ -118,11 +126,33 @@ class Command(BaseCommand):
                 },
             )
             stats = response["people"][0]["stats"][0]["splits"][0]["stat"]
+
+            # Calculate OPS from raw stats for higher precision (5 decimals)
+            # OBP = (H + BB + HBP) / (AB + BB + HBP + SF)
+            # SLG = TB / AB where TB = singles + 2*doubles + 3*triples + 4*HR
+            hits = int(stats.get("hits", 0))
+            bb = int(stats.get("baseOnBalls", 0))
+            hbp = int(stats.get("hitByPitch", 0))
+            ab = int(stats.get("atBats", 0))
+            sf = int(stats.get("sacFlies", 0))
+            doubles = int(stats.get("doubles", 0))
+            triples = int(stats.get("triples", 0))
+            hr = int(stats.get("homeRuns", 0))
+
+            obp_denom = ab + bb + hbp + sf
+            obp = (hits + bb + hbp) / obp_denom if obp_denom > 0 else 0
+
+            singles = hits - doubles - triples - hr
+            tb = singles + 2 * doubles + 3 * triples + 4 * hr
+            slg = tb / ab if ab > 0 else 0
+
+            ops = round(obp + slg, 5)
+
             return (
                 stats.get("avg", 0),
-                stats.get("ops", 0),
+                ops,
                 stats.get("plateAppearances", 0),
-                stats.get("homeRuns", 0),
+                hr,
                 stats.get("rbi", 0),
                 stats.get("stolenBases", 0),
             )
