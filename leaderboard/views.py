@@ -77,23 +77,21 @@ def player_list(request):
 
 
 def calculate_pro_rated_plate_appearances():
-    """Calculate the minimum plate appearances required based on how many weeks have passed since March 18 (for 2025 season)"""
-    SEASON_START = date(2026, 3, 25)
+    """Calculate the minimum plate appearances required based on weeks elapsed in the season."""
+    SEASON_START = date(2026, 3, 19)
     TOTAL_WEEKS = 27
     FULL_SEASON_PA = 502
 
     today = date.today()
 
-    # If the season hasn't started, return 0 to avoid division errors
     if today < SEASON_START:
         return 0
 
-    # Calculate the number of weeks elapsed since SEASON_START
     days_elapsed = (today - SEASON_START).days
-    weeks_elapsed = (days_elapsed // 7)
+    weeks_elapsed = days_elapsed / 7  # continuous weeks, not floored
     weeks_elapsed = min(weeks_elapsed, TOTAL_WEEKS)
 
-    return FULL_SEASON_PA * (weeks_elapsed / TOTAL_WEEKS) # Pro-rated plate appearances
+    return FULL_SEASON_PA * (weeks_elapsed / TOTAL_WEEKS)
 
 
 def get_season_progress():
