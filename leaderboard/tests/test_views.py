@@ -191,10 +191,10 @@ def test_hitter_leaderboard_serialization_error(mocker):
 @pytest.mark.django_db
 def test_pro_rated_plate_appearances(monkeypatch):
     """Test dynamic plate appearances calculation based on date."""
-    # SEASON_START = March 19, 2026; uses continuous weeks (days/7)
+    # SEASON_START = March 19, 2026; uses continuous weeks (days/7), floored to int
     test_cases = [
-        (date(2026, 3, 26), 502 * (7 / 7) / 27),  # 1 week in
-        (date(2026, 4, 23), 502 * (35 / 7) / 27),  # 5 weeks in
+        (date(2026, 3, 26), 18),   # 1 week in: int(502 * 1 / 27) = 18
+        (date(2026, 4, 23), 92),   # 5 weeks in: int(502 * 5 / 27) = 92
         (date(2026, 9, 26), 502),  # End of season (capped at 27 weeks)
     ]
 
@@ -207,7 +207,7 @@ def test_pro_rated_plate_appearances(monkeypatch):
         monkeypatch.setattr("leaderboard.views.date", MockDate)
         result = calculate_pro_rated_plate_appearances()
 
-        assert result == pytest.approx(expected, rel=1e-2), f"Failed for {test_date}"
+        assert result == expected, f"Failed for {test_date}: got {result}, expected {expected}"
 
 
 @pytest.mark.django_db
