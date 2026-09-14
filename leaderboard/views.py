@@ -453,19 +453,19 @@ def ops_leaderboard(request):
         # Determine if user is disqualified
         is_disqualified = len(final_qualified_picks) < 10
         aggregate_ops = None
-        alternate_average = None
+        alternate_ops = None
 
         if not is_disqualified:
             aggregate_ops = sum(pick["ops"] for pick in final_qualified_picks) / 10
-            alternate_average = (
-                sum(pick["average"] for pick in qualified_alternates) / len(qualified_alternates)
+            alternate_ops = (
+                sum(pick["ops"] for pick in qualified_alternates) / len(qualified_alternates)
                 if qualified_alternates else 0
             )
 
         user_entry = {
             "user_name": user.name,
             "aggregate_ops": round(aggregate_ops, 5) if aggregate_ops else None,
-            "alternate_average": round(alternate_average, 4) if alternate_average else None,
+            "alternate_ops": round(alternate_ops, 5) if alternate_ops else None,
             "qualified_picks": final_qualified_picks,
             "disqualified_picks": disqualified_picks,
             "rank": 0 if is_disqualified else None
@@ -477,7 +477,7 @@ def ops_leaderboard(request):
     ranked_users.sort(
         key=lambda entry: (
             -entry["aggregate_ops"] if entry["aggregate_ops"] is not None else float('-inf'),
-            -entry["alternate_average"] if entry["alternate_average"] is not None else float('-inf')
+            -entry["alternate_ops"] if entry["alternate_ops"] is not None else float('-inf')
         )
     )
 
